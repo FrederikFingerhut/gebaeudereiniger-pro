@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildInvoiceDrafts, compareSiteHours, expandSeries, isoWeekday, texts, workedMinutes } from "./index";
+import { addDays, berlinDate, buildInvoiceDrafts, checklistTitle, clockErrorKey, clockErrors, compareSiteHours, expandSeries, isoWeekday, mondayOf, siteFromRow, texts, visitFromRow, workedMinutes } from "./index";
 import type { Site } from "./types";
 
 describe("Einsatzplanung", () => {
@@ -59,5 +59,38 @@ describe("Übersetzungen", () => {
   it("haben in jeder Sprache alle Texte", () => {
     const keys = Object.keys(texts.de).sort();
     for (const lang of Object.values(texts)) expect(Object.keys(lang).sort()).toEqual(keys);
+  });
+});
+
+describe("Datenbank", () => {
+  it("wandelt Zeilen in App-Daten um", () => {
+    const site = siteFromRow({
+      id: "o1", company_id: "c", customer_id: "k1", name: "Praxis", address: "Bahnhofstr. 8", latitude: null, longitude: null,
+      geofence_radius_m: 150, access_notes: null, contact: "Frau Becker", special_notes: null, planned_minutes: 90, active: true,
+      site_billing: [{ billing_mode: "pro_einsatz", price_cents: 8000 }],
+    });
+    expect(site.billingMode).toBe("pro_einsatz");
+    expect(site.priceCents).toBe(8000);
+    expect(site.accessNotes).toBeUndefined();
+    const visit = visitFromRow({ id: "v", company_id: "c", site_id: "o1", employee_id: "m", series_id: null, date: "2026-10-12", start_time: "06:00:00", planned_minutes: 90, status: "geplant", note: null });
+    expect(visit.startTime).toBe("06:00");
+  });
+
+  it("nimmt Checklisten-Text in der Sprache, sonst Deutsch", () => {
+    expect(checklistTitle({ de: "Böden wischen", uk: "Помити підлогу" }, "uk")).toBe("Помити підлогу");
+    expect(checklistTitle({ de: "Böden wischen" }, "ru")).toBe("Böden wischen");
+  });
+
+  it("rechnet mit deutschem Datum", () => {
+    expect(berlinDate(new Date("2026-10-11T22:30:00Z"))).toBe("2026-10-12"); // 00:30 Uhr in Berlin
+    expect(mondayOf("2026-10-15")).toBe("2026-10-12");
+    expect(mondayOf("2026-10-18")).toBe("2026-10-12");
+    expect(addDays("2026-10-30", 3)).toBe("2026-11-02");
+  });
+
+  it("erkennt Stempel-Fehler und hat Texte dafür", () => {
+    expect(clockErrorKey("nicht_am_objekt")).toBe("nicht_am_objekt");
+    expect(clockErrorKey("irgendwas")).toBeNull();
+    for (const key of clockErrors) expect(texts.de[`err_${key}`]).toBeTruthy();
   });
 });

@@ -3,20 +3,25 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { brand } from "@gp/shared";
+import { signOut } from "@/app/auth-actions";
 
 const items = [
   { href: "/", label: "Übersicht" },
   { href: "/planung", label: "Einsatzplan" },
   { href: "/objekte", label: "Objekte" },
+  { href: "/mitarbeiter", label: "Mitarbeiter" },
   { href: "/rechnungen", label: "Rechnungen" },
 ];
 
+const withoutNav = ["/anmelden", "/registrieren", "/firma-anlegen"];
+
 export function Nav() {
   const path = usePathname();
+  if (withoutNav.some((p) => path.startsWith(p)) || path.endsWith("/qr")) return null;
   return (
-    <nav className="bg-primary text-on-primary md:w-56 md:min-h-screen px-4 py-4 flex md:flex-col gap-4 md:gap-6 overflow-x-auto">
+    <nav className="bg-primary text-on-primary md:w-56 md:min-h-screen px-4 py-4 flex md:flex-col gap-4 md:gap-6 overflow-x-auto print:hidden">
       <div className="font-display font-extrabold text-lg whitespace-nowrap">{brand.name}</div>
-      <ul className="flex md:flex-col gap-1">
+      <ul className="flex md:flex-col gap-1 md:flex-1">
         {items.map((item) => {
           const active = item.href === "/" ? path === "/" : path.startsWith(item.href);
           return (
@@ -31,6 +36,11 @@ export function Nav() {
           );
         })}
       </ul>
+      <form action={signOut}>
+        <button type="submit" className="rounded-lg px-3 py-2 text-sm font-semibold whitespace-nowrap hover:bg-white/10">
+          Abmelden
+        </button>
+      </form>
     </nav>
   );
 }

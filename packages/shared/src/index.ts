@@ -4,4 +4,4 @@ export * from "./time";
 export * from "./billing";
 export * from "./i18n";
 export * from "./brand";
-export * from "./demo";
+export * from "./database";
