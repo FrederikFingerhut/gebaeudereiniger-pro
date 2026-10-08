@@ -16,6 +16,8 @@ export default function OverviewPage() {
   );
 }
 
+const reportKinds: Record<string, string> = { problem: "Etwas kaputt", material: "Material fehlt", reklamation: "Reklamation" };
+
 type VisitToday = {
   id: string;
   start_time: string;
@@ -34,7 +36,7 @@ async function Overview() {
 
   const [visitsRes, reportsRes, absencesRes, monthRes] = await Promise.all([
     supabase.from("visits").select("id, start_time, status, sites(name), profiles(full_name)").eq("date", today).order("start_time"),
-    supabase.from("reports").select("id, kind, text, created_at, sites(name), profiles(full_name)").eq("status", "offen").order("created_at", { ascending: false }),
+    supabase.from("reports").select("id, kind, text, photo_paths, created_at, sites(name), profiles(full_name)").eq("status", "offen").order("created_at", { ascending: false }),
     supabase.from("absences").select("id, kind, date_to, profiles(full_name)").lte("date_from", today).gte("date_to", today),
     supabase.from("time_entries").select("clock_in_at, clock_out_at, visits(site_id, planned_minutes, sites(name))").gte("clock_in_at", monthStart),
   ]);
@@ -55,7 +57,12 @@ async function Overview() {
   const max = Math.max(1, ...siteHours.map((h) => Math.max(h.plannedMinutes, h.actualMinutes)));
   const done = visits.filter((v) => v.status === "erledigt").length;
   const running = visits.filter((v) => v.status === "laeuft").length;
-  const reports = (reportsRes.data ?? []) as unknown as { id: string; kind: string; text: string; created_at: string; sites: { name: string } | null; profiles: { full_name: string } | null }[];
+  const reports = (reportsRes.data ?? []) as unknown as { id: string; kind: string; text: string; photo_paths: string[]; created_at: string; sites: { name: string } | null; profiles: { full_name: string } | null }[];
+  // Fotos liegen privat im Speicher; das Büro bekommt Links, die eine Stunde gelten.
+  const photoPaths = reports.flatMap((r) => r.photo_paths);
+  const { data: signed } = photoPaths.length ? await supabase.storage.from("fotos").createSignedUrls(photoPaths, 3600) : { data: [] };
+  const photoUrl = new Map<string, string>();
+  for (const s of signed ?? []) if (s.path && s.signedUrl) photoUrl.set(s.path, s.signedUrl);
   const absences = (absencesRes.data ?? []) as unknown as { id: string; kind: string; date_to: string; profiles: { full_name: string } | null }[];
 
   return (
@@ -104,8 +111,23 @@ async function Overview() {
               {reports.map((r) => (
                 <li key={r.id} className="flex items-start justify-between gap-3 py-2">
                   <div className="min-w-0 text-sm">
-                    <div className="font-semibold">{one(r.sites)?.name ?? "Allgemein"}</div>
-                    <div>{r.text}</div>
+                    <div className="font-semibold">
+                      {one(r.sites)?.name ?? "Allgemein"} <Pill tone={r.kind === "material" ? "warn" : "muted"}>{reportKinds[r.kind] ?? r.kind}</Pill>
+                    </div>
+                    {r.text && <div>{r.text}</div>}
+                    {r.photo_paths.length > 0 && (
+                      <div className="flex gap-2 my-1.5">
+                        {r.photo_paths.map((path) => {
+                          const url = photoUrl.get(path);
+                          return url ? (
+                            <a key={path} href={url} target="_blank" rel="noreferrer">
+                              {/* eslint-disable-next-line @next/next/no-img-element -- kurzlebige, signierte Links */}
+                              <img src={url} alt="Foto zur Meldung" className="h-20 w-20 rounded-lg object-cover border border-line" />
+                            </a>
+                          ) : null;
+                        })}
+                      </div>
+                    )}
                     <div className="text-xs text-muted">
                       {one(r.profiles)?.full_name} · {new Date(r.created_at).toLocaleString("de-DE", { timeZone: "Europe/Berlin", dateStyle: "short", timeStyle: "short" })}
                     </div>

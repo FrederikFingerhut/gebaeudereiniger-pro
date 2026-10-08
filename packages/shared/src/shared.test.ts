@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addDays, brand, logoSvg, berlinDate, buildInvoiceDrafts, checklistTitle, clockErrorKey, clockErrors, compareSiteHours, expandSeries, isoWeekday, mondayOf, siteFromRow, texts, visitFromRow, workedMinutes } from "./index";
+import { addDays, brand, decimalHours, hoursCsv, monthRange, monthlyHours, logoSvg, berlinDate, buildInvoiceDrafts, checklistTitle, clockErrorKey, clockErrors, compareSiteHours, expandSeries, isoWeekday, mondayOf, siteFromRow, texts, visitFromRow, workedMinutes } from "./index";
 import type { Site } from "./types";
 
 describe("Einsatzplanung", () => {
@@ -109,5 +109,50 @@ describe("Logo", () => {
     }
     expect(logoSvg("square")).toContain('rx="0"');
     expect(logoSvg("foreground")).not.toContain("gp-bg");
+  });
+});
+
+describe("Monatsübersicht Stunden", () => {
+  const planned = [
+    { employeeId: "o", siteId: "praxis", date: "2026-10-05", plannedMinutes: 90 },
+    { employeeId: "o", siteId: "praxis", date: "2026-10-07", plannedMinutes: 90 },
+    { employeeId: "o", siteId: "lager", date: "2026-10-07", plannedMinutes: 60, cancelled: true },
+    { employeeId: "o", siteId: "praxis", date: "2026-11-02", plannedMinutes: 90 },
+  ];
+  const entries = [
+    { employeeId: "o", siteId: "praxis", clockInAt: "2026-10-05T04:00:00Z", clockOutAt: "2026-10-05T05:45:00Z" },
+    { employeeId: "o", siteId: "praxis", clockInAt: "2026-10-07T04:00:00Z", clockOutAt: "2026-10-07T05:15:00Z" },
+    // 31.10. 23:30 deutsche Zeit gehört noch zum Oktober
+    { employeeId: "o", siteId: null, clockInAt: "2026-10-31T22:30:00Z", clockOutAt: "2026-10-31T23:00:00Z" },
+    { employeeId: "o", siteId: "praxis", clockInAt: "2026-10-08T04:00:00Z", clockOutAt: null },
+  ];
+
+  it("summiert je Mitarbeiter und Objekt", () => {
+    const [o] = monthlyHours("2026-10", planned, entries);
+    expect(o.plannedMinutes).toBe(180); // ausgefallen und November zählen nicht
+    expect(o.actualMinutes).toBe(105 + 75 + 30);
+    expect(o.days).toBe(3);
+    expect(o.open).toBe(1);
+    expect(o.rows.find((r) => r.siteId === "praxis")).toMatchObject({ visits: 2, plannedMinutes: 180, actualMinutes: 180 });
+    expect(o.rows.find((r) => r.siteId === null)?.actualMinutes).toBe(30);
+  });
+
+  it("kennt Monatsgrenzen", () => {
+    expect(monthRange("2026-02")).toEqual({ from: "2026-02-01", to: "2026-02-28" });
+    expect(monthRange("2026-12")).toEqual({ from: "2026-12-01", to: "2026-12-31" });
+  });
+
+  it("schreibt CSV fürs Lohnbüro", () => {
+    expect(decimalHours(90)).toBe("1,50");
+    expect(decimalHours(-30)).toBe("-0,50");
+    const csv = hoursCsv("2026-10", monthlyHours("2026-10", planned, entries), {
+      employee: () => "Oksana; K.",
+      site: (id) => (id === "praxis" ? "Praxis Dr. Meyer" : "ohne Objekt"),
+    });
+    const lines = csv.replace("\uFEFF", "").trim().split("\r\n");
+    expect(csv.startsWith("\uFEFF")).toBe(true);
+    expect(lines[0]).toBe("Monat;Mitarbeiter;Objekt;Einsätze;Geplant (Std.);Gestempelt (Std.);Differenz (Std.)");
+    expect(lines).toContain('2026-10;"Oksana; K.";Praxis Dr. Meyer;2;3,00;3,00;0,00');
+    expect(lines.at(-1)).toBe('2026-10;"Oksana; K.";Summe;2;3,00;3,50;0,50');
   });
 });

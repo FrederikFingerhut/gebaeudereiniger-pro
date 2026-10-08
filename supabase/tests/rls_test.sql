@@ -143,3 +143,38 @@ select pg_temp.expect('Neuer Chef sieht nur seine neue Firma', (select count(*) 
 select pg_temp.expect('Neuer Chef ist Chef', (select count(*) from profiles where id = auth.uid() and role = 'chef'), 1);
 
 reset role;
+
+-- Fotos bei Meldungen
+set role authenticated;
+set request.jwt.claim.sub = '10000000-0000-0000-0000-000000000002';
+insert into storage.objects (bucket_id, name)
+  values ('fotos', '00000000-0000-0000-0000-00000000000a/10000000-0000-0000-0000-000000000002/kaputt.jpg');
+select pg_temp.expect_error('Foto in fremden Ordner blockiert',
+  $q$insert into storage.objects (bucket_id, name) values ('fotos', '00000000-0000-0000-0000-00000000000a/10000000-0000-0000-0000-000000000001/x.jpg')$q$,
+  'new row violates row-level security policy for table "objects"');
+select pg_temp.expect_error('Foto in fremde Firma blockiert',
+  $q$insert into storage.objects (bucket_id, name) values ('fotos', '00000000-0000-0000-0000-00000000000b/10000000-0000-0000-0000-000000000002/x.jpg')$q$,
+  'new row violates row-level security policy for table "objects"');
+insert into reports (company_id, site_id, author_id, kind, text, photo_paths) values
+  ('00000000-0000-0000-0000-00000000000a', '30000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000002', 'material', 'Seife leer',
+   '{00000000-0000-0000-0000-00000000000a/10000000-0000-0000-0000-000000000002/kaputt.jpg}');
+select pg_temp.expect('Meldung mit eigenem Foto klappt', (select count(*) from reports where cardinality(photo_paths) = 1), 1);
+select pg_temp.expect_error('Meldung mit fremdem Foto blockiert',
+  $q$insert into reports (company_id, author_id, text, photo_paths) values ('00000000-0000-0000-0000-00000000000a', '10000000-0000-0000-0000-000000000002', 'x', '{00000000-0000-0000-0000-00000000000a/10000000-0000-0000-0000-000000000001/x.jpg}')$q$,
+  'new row violates row-level security policy for table "reports"');
+
+set request.jwt.claim.sub = '10000000-0000-0000-0000-000000000001';
+insert into storage.objects (bucket_id, name)
+  values ('fotos', '00000000-0000-0000-0000-00000000000a/10000000-0000-0000-0000-000000000001/chef.jpg');
+select pg_temp.expect('Chef sieht alle Fotos der Firma', (select count(*) from storage.objects), 2);
+
+set request.jwt.claim.sub = '10000000-0000-0000-0000-000000000002';
+select pg_temp.expect('Mitarbeiterin sieht nur eigene Fotos', (select count(*) from storage.objects), 1);
+delete from storage.objects;
+reset role;
+select pg_temp.expect('Mitarbeiterin löscht keine Fotos', (select count(*) from storage.objects), 2);
+set role authenticated;
+
+set request.jwt.claim.sub = '10000000-0000-0000-0000-000000000003';
+select pg_temp.expect('Firma B sieht keine Fotos von A', (select count(*) from storage.objects), 0);
+reset role;

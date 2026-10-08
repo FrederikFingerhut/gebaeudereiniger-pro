@@ -12,6 +12,7 @@ import {
   type Visit,
   type VisitRow,
 } from "@gp/shared";
+import { ImageManipulator, SaveFormat } from "expo-image-manipulator";
 import { supabase } from "./supabase";
 
 export type MyVisit = Visit & { id: string; site: Site & { latitude: number | null; longitude: number | null } };
@@ -99,13 +100,39 @@ export async function setChecked(profile: ProfileRow, visitId: string, itemId: s
   if (error) throw error;
 }
 
-export async function sendReport(profile: ProfileRow, visit: MyVisit, text: string) {
+export type ReportKind = "problem" | "material";
+
+/** Ein Foto für eine Meldung: verkleinert, damit es auch im Funkloch schnell hochgeht. */
+export interface ReportPhoto {
+  uri: string;
+  width: number;
+}
+
+const PHOTO_WIDTH = 1600;
+
+async function uploadPhoto(profile: ProfileRow, photo: ReportPhoto): Promise<string> {
+  let context = ImageManipulator.manipulate(photo.uri);
+  if (photo.width > PHOTO_WIDTH) context = context.resize({ width: PHOTO_WIDTH });
+  const image = await (await context.renderAsync()).saveAsync({ compress: 0.7, format: SaveFormat.JPEG, base64: true });
+  const bytes = Uint8Array.from(atob(image.base64 ?? ""), (ch) => ch.charCodeAt(0));
+  // Ordner = Firma/Mitarbeiter; daran hängen die Zugriffsregeln im Speicher.
+  const path = `${profile.company_id}/${profile.id}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`;
+  const { error } = await supabase.storage.from("fotos").upload(path, bytes, { contentType: "image/jpeg" });
+  if (error) throw error;
+  return path;
+}
+
+export async function sendReport(profile: ProfileRow, visit: MyVisit, kind: ReportKind, text: string, photos: ReportPhoto[]) {
+  const photoPaths = [];
+  for (const photo of photos) photoPaths.push(await uploadPhoto(profile, photo));
   const { error } = await supabase.from("reports").insert({
     company_id: profile.company_id,
     site_id: visit.siteId,
     visit_id: visit.id,
     author_id: profile.id,
+    kind,
     text,
+    photo_paths: photoPaths,
   });
   if (error) throw error;
 }
