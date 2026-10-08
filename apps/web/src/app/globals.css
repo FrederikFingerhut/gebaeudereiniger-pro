@@ -1,0 +1,26 @@
+@import "tailwindcss";
+
+/* Die Farbwerte kommen aus packages/shared/src/brand.ts (gesetzt im Layout). */
+@theme inline {
+  --color-primary: var(--gp-primary);
+  --color-on-primary: var(--gp-onPrimary);
+  --color-signal: var(--gp-signal);
+  --color-on-signal: var(--gp-onSignal);
+  --color-background: var(--gp-background);
+  --color-surface: var(--gp-surface);
+  --color-ink: var(--gp-text);
+  --color-muted: var(--gp-muted);
+  --color-line: var(--gp-line);
+  --color-soft: var(--gp-soft);
+  --color-ok: var(--gp-ok);
+  --color-warn: var(--gp-warn);
+  --color-bad: var(--gp-bad);
+  --font-sans: var(--font-body);
+  --font-display: var(--font-display);
+}
+
+body {
+  background: var(--gp-background);
+  color: var(--gp-text);
+  font-variant-numeric: tabular-nums;
+}
