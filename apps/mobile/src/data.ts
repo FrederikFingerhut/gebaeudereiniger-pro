@@ -1,0 +1,132 @@
+import {
+  berlinDate,
+  clockErrorKey,
+  siteFromRow,
+  visitFromRow,
+  type ChecklistItemRow,
+  type ProfileRow,
+  type Site,
+  type SiteRow,
+  type TextKey,
+  type TimeEntryRow,
+  type Visit,
+  type VisitRow,
+} from "@gp/shared";
+import { supabase } from "./supabase";
+
+export type MyVisit = Visit & { id: string; site: Site & { latitude: number | null; longitude: number | null } };
+
+export interface Day {
+  visits: MyVisit[];
+  checklist: ChecklistItemRow[];
+  /** checklist_item_id je Einsatz */
+  checked: Record<string, string[]>;
+  openEntry: TimeEntryRow | null;
+}
+
+export async function loadProfile(userId: string): Promise<ProfileRow | null> {
+  const { data, error } = await supabase.from("profiles").select("*").eq("id", userId).maybeSingle();
+  if (error) throw error;
+  return data as ProfileRow | null;
+}
+
+/** Lädt die Einsätze von heute (und einen noch laufenden von gestern). */
+export async function loadDay(userId: string): Promise<Day> {
+  const today = berlinDate();
+  // Einsätze aus den wiederkehrenden Serien anlegen, falls das Büro das noch nicht getan hat.
+  await supabase.rpc("ensure_visits", { p_from: today, p_to: today });
+
+  const [{ data: entries, error: e1 }, { data: visitRows, error: e2 }] = await Promise.all([
+    supabase.from("time_entries").select("*").eq("employee_id", userId).is("clock_out_at", null).limit(1),
+    supabase.from("visits").select("*").eq("employee_id", userId).eq("date", today).neq("status", "ausgefallen").order("start_time"),
+  ]);
+  if (e1 || e2) throw e1 ?? e2;
+  const openEntry = (entries?.[0] as TimeEntryRow | undefined) ?? null;
+  const rows = (visitRows ?? []) as VisitRow[];
+
+  // Läuft noch ein Einsatz von gestern (Nachtschicht), gehört er dazu.
+  if (openEntry?.visit_id && !rows.some((r) => r.id === openEntry.visit_id)) {
+    const { data } = await supabase.from("visits").select("*").eq("id", openEntry.visit_id).maybeSingle();
+    if (data) rows.unshift(data as VisitRow);
+  }
+  if (rows.length === 0) return { visits: [], checklist: [], checked: {}, openEntry };
+
+  const siteIds = [...new Set(rows.map((r) => r.site_id))];
+  const visitIds = rows.map((r) => r.id);
+  const [{ data: sites, error: e3 }, { data: items, error: e4 }, { data: checks, error: e5 }] = await Promise.all([
+    supabase.from("sites").select("*").in("id", siteIds),
+    supabase.from("checklist_items").select("*").in("site_id", siteIds).eq("active", true).order("position"),
+    supabase.from("checklist_checks").select("visit_id, checklist_item_id").in("visit_id", visitIds),
+  ]);
+  if (e3 || e4 || e5) throw e3 ?? e4 ?? e5;
+
+  const siteMap = new Map((sites as SiteRow[]).map((s) => [s.id, { ...siteFromRow(s), latitude: s.latitude, longitude: s.longitude }]));
+  const checked: Record<string, string[]> = {};
+  for (const c of checks ?? []) (checked[c.visit_id] ??= []).push(c.checklist_item_id);
+
+  return {
+    visits: rows.filter((r) => siteMap.has(r.site_id)).map((r) => ({ ...visitFromRow(r), id: r.id, site: siteMap.get(r.site_id)! })),
+    checklist: (items ?? []) as ChecklistItemRow[],
+    checked,
+    openEntry,
+  };
+}
+
+/** Übersetzt einen Datenbankfehler in einen Text für den Mitarbeiter. */
+export function errorText(error: { message?: string } | null | undefined): TextKey {
+  const key = clockErrorKey(error?.message);
+  return key ? (`err_${key}` as TextKey) : "networkError";
+}
+
+export async function clockIn(visitId: string, place: { latitude: number; longitude: number } | { token: string }) {
+  const args = "token" in place
+    ? { p_visit_id: visitId, p_token: place.token }
+    : { p_visit_id: visitId, p_latitude: place.latitude, p_longitude: place.longitude };
+  const { data, error } = await supabase.rpc("clock_in", args);
+  if (error) throw error;
+  return data as TimeEntryRow;
+}
+
+export async function clockOut(entryId: string) {
+  const { error } = await supabase.rpc("clock_out", { p_entry_id: entryId });
+  if (error) throw error;
+}
+
+export async function setChecked(profile: ProfileRow, visitId: string, itemId: string, on: boolean) {
+  const { error } = on
+    ? await supabase.from("checklist_checks").insert({ visit_id: visitId, checklist_item_id: itemId, company_id: profile.company_id, checked_by: profile.id })
+    : await supabase.from("checklist_checks").delete().eq("visit_id", visitId).eq("checklist_item_id", itemId);
+  if (error) throw error;
+}
+
+export async function sendReport(profile: ProfileRow, visit: MyVisit, text: string) {
+  const { error } = await supabase.from("reports").insert({
+    company_id: profile.company_id,
+    site_id: visit.siteId,
+    visit_id: visit.id,
+    author_id: profile.id,
+    text,
+  });
+  if (error) throw error;
+}
+
+export async function reportSick(profile: ProfileRow) {
+  const today = berlinDate();
+  const { error } = await supabase.from("absences").insert({
+    company_id: profile.company_id,
+    employee_id: profile.id,
+    kind: "krank",
+    date_from: today,
+    date_to: today,
+  });
+  if (error) throw error;
+}
+
+export async function saveLanguage(profile: ProfileRow, language: ProfileRow["language"]) {
+  await supabase.from("profiles").update({ language }).eq("id", profile.id);
+}
+
+/** QR-Aufkleber enthalten den Schlüssel, ggf. am Ende eines Links. */
+export function tokenFromQr(data: string): string {
+  return data.trim().split("/").filter(Boolean).pop() ?? "";
+}

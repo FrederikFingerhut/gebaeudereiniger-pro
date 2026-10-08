@@ -23,6 +23,22 @@
     "web": {
       "favicon": "./assets/favicon.png"
     },
-    "scheme": "gebaeudereinigerpro"
+    "scheme": "gebaeudereinigerpro",
+    "plugins": [
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Beim Einstempeln wird geprüft, ob du am Objekt bist."
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Zum Einstempeln per QR-Code im Objekt.",
+          "microphonePermission": false,
+          "recordAudioAndroid": false
+        }
+      ]
+    ]
   }
 }

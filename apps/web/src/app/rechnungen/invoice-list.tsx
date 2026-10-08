@@ -7,7 +7,7 @@ import { Card, Pill } from "@/components/ui";
 type Draft = InvoiceDraft & { customerName: string };
 
 export function InvoiceList({ drafts }: { drafts: Draft[] }) {
-  // Vorerst nur angezeigt. Die echte Übergabe läuft später über die Lexoffice-Schnittstelle auf dem Server.
+  // Die echte Übergabe an Lexoffice kommt im nächsten Schritt über die Lexoffice-Schnittstelle auf dem Server; bis dahin nur Markierung.
   const [handedOver, setHandedOver] = useState<Set<string>>(new Set());
   const total = drafts.reduce((sum, d) => sum + d.totalNetCents, 0);
   const handOver = (ids: string[]) => setHandedOver((prev) => new Set([...prev, ...ids]));
