@@ -5,3 +5,4 @@ export * from "./billing";
 export * from "./i18n";
 export * from "./brand";
 export * from "./database";
+export * from "./logo";

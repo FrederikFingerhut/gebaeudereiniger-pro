@@ -11,7 +11,7 @@
 import { brand } from "../../packages/shared/src/brand.ts";
 
 const WEB = process.env.WEB_URL ?? "https://gebaeudereiniger-pro.vercel.app";
-const LOGO = process.env.LOGO_URL ?? "https://gebaeudereiniger-pro-mobile.vercel.app/icon.png";
+const LOGO = process.env.LOGO_URL ?? `${WEB}/logo.png`;
 const c = brand.colors;
 const font = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif";
 

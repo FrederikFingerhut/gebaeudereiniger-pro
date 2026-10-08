@@ -5,6 +5,9 @@ export const brand = {
   shortName: "GR Pro",
   colors: {
     primary: "#0f4c5c",
+    // Verlauf im Logo (hell oben links, dunkel unten rechts)
+    primaryLight: "#1a7a8f",
+    primaryDeep: "#0b3440",
     onPrimary: "#ffffff",
     signal: "#f2b632",
     onSignal: "#1d1600",

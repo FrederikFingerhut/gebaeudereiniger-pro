@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, Alert, Pressable, RefreshControl, ScrollView, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Alert, Image, Pressable, RefreshControl, ScrollView, Text, TextInput, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import type { Session } from "@supabase/supabase-js";
@@ -79,7 +79,10 @@ export default function App() {
               </Pressable>
             ))}
           </View>
-          <Text style={styles.hello}>{profile ? `${t(lang, "greeting")}, ${profile.full_name.split(" ")[0]}` : brand.name}</Text>
+          <View style={styles.titleRow}>
+            <Image source={require("./assets/splash-icon.png")} style={styles.logo} accessibilityIgnoresInvertColors />
+            <Text style={styles.hello}>{profile ? `${t(lang, "greeting")}, ${profile.full_name.split(" ")[0]}` : brand.name}</Text>
+          </View>
         </View>
 
         {content}

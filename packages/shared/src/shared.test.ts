@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addDays, berlinDate, buildInvoiceDrafts, checklistTitle, clockErrorKey, clockErrors, compareSiteHours, expandSeries, isoWeekday, mondayOf, siteFromRow, texts, visitFromRow, workedMinutes } from "./index";
+import { addDays, brand, logoSvg, berlinDate, buildInvoiceDrafts, checklistTitle, clockErrorKey, clockErrors, compareSiteHours, expandSeries, isoWeekday, mondayOf, siteFromRow, texts, visitFromRow, workedMinutes } from "./index";
 import type { Site } from "./types";
 
 describe("Einsatzplanung", () => {
@@ -92,5 +92,22 @@ describe("Datenbank", () => {
     expect(clockErrorKey("nicht_am_objekt")).toBe("nicht_am_objekt");
     expect(clockErrorKey("irgendwas")).toBeNull();
     for (const key of clockErrors) expect(texts.de[`err_${key}`]).toBeTruthy();
+  });
+});
+
+describe("Logo", () => {
+  it("nutzt die Farben aus brand.ts", () => {
+    const svg = logoSvg();
+    expect(svg).toContain(brand.colors.primaryLight);
+    expect(svg).toContain(brand.colors.signal);
+    expect(svg.startsWith("<svg")).toBe(true);
+  });
+
+  it("hat alle Varianten in der gewünschten Größe", () => {
+    for (const v of ["rounded", "square", "foreground", "background", "monochrome"] as const) {
+      expect(logoSvg(v, 512)).toContain('width="512"');
+    }
+    expect(logoSvg("square")).toContain('rx="0"');
+    expect(logoSvg("foreground")).not.toContain("gp-bg");
   });
 });
