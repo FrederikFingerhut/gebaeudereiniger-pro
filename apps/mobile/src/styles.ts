@@ -11,6 +11,8 @@ export const styles = StyleSheet.create({
   langActive: { backgroundColor: c.onPrimary, opacity: 1 },
   langText: { color: c.onPrimary, fontWeight: "700", fontSize: 12 },
   langTextActive: { color: c.primary },
+  titleRow: { flexDirection: "row", alignItems: "center", gap: 12 },
+  logo: { width: 40, height: 40, borderRadius: 10 },
   hello: { color: c.onPrimary, fontSize: 24, fontWeight: "800" },
   body: { padding: 16, gap: 12 },
   label: { fontSize: 12, letterSpacing: 1, textTransform: "uppercase", color: c.muted, fontWeight: "600" },

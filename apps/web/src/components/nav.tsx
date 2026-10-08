@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { brand } from "@gp/shared";
@@ -20,7 +21,10 @@ export function Nav() {
   if (withoutNav.some((p) => path.startsWith(p)) || path.endsWith("/qr")) return null;
   return (
     <nav className="bg-primary text-on-primary md:w-56 md:min-h-screen px-4 py-4 flex md:flex-col gap-4 md:gap-6 overflow-x-auto print:hidden">
-      <div className="font-display font-extrabold text-lg whitespace-nowrap">{brand.name}</div>
+      <div className="flex items-center gap-2 font-display font-extrabold text-lg whitespace-nowrap">
+        <Image src="/logo.png" alt="" width={32} height={32} className="rounded-lg" priority />
+        {brand.name}
+      </div>
       <ul className="flex md:flex-col gap-1 md:flex-1">
         {items.map((item) => {
           const active = item.href === "/" ? path === "/" : path.startsWith(item.href);
