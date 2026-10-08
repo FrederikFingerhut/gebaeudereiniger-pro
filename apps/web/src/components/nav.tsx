@@ -13,7 +13,7 @@ const items = [
   { href: "/rechnungen", label: "Rechnungen" },
 ];
 
-const withoutNav = ["/anmelden", "/registrieren", "/firma-anlegen"];
+const withoutNav = ["/anmelden", "/registrieren", "/firma-anlegen", "/passwort-vergessen", "/passwort-neu"];
 
 export function Nav() {
   const path = usePathname();

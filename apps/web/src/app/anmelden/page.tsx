@@ -16,7 +16,10 @@ export default function SignInPage() {
           <input name="password" type="password" required autoComplete="current-password" className={inputClass} />
         </Field>
       </ActionForm>
-      <p className="text-sm text-muted mt-6">
+      <p className="text-sm text-muted mt-4">
+        <Link href="/passwort-vergessen" className="font-semibold text-primary">Passwort vergessen?</Link>
+      </p>
+      <p className="text-sm text-muted mt-4">
         Neue Firma? <Link href="/registrieren" className="font-semibold text-primary">Jetzt registrieren</Link>
       </p>
     </div>

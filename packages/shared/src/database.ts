@@ -5,7 +5,7 @@ import type { Language, Role, Site, Visit, VisitSeries, VisitStatus, BillingMode
 // die Anmeldung und die Zugriffsregeln in der Datenbank.
 export const supabaseConfig = {
   url: "https://yvwykodhkkyyizajauln.supabase.co",
-  publishableKey: "",
+  publishableKey: "sb_publishable_d2pFvyNUJMIfr-nhdpAGfA_Fitm_AEI",
 };
 
 // Zeilen, wie sie aus der Datenbank kommen (Spaltennamen mit Unterstrich).
