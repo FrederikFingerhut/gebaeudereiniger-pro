@@ -21,12 +21,21 @@ export function Nav() {
   const path = usePathname();
   if (withoutNav.some((p) => path.startsWith(p)) || path.endsWith("/qr")) return null;
   return (
-    <nav className="bg-primary text-on-primary md:w-56 md:min-h-screen px-4 py-4 flex md:flex-col gap-4 md:gap-6 overflow-x-auto print:hidden">
-      <div className="flex items-center gap-2 font-display font-extrabold text-lg whitespace-nowrap">
-        <Image src="/logo.png" alt="" width={32} height={32} className="rounded-lg" priority />
-        {brand.name}
+    // Handy: oben Name und Abmelden, darunter die Menüpunkte zum Wischen.
+    // Bildschirm: Leiste links; der Name darf dort umbrechen statt abgeschnitten zu werden.
+    <nav className="bg-primary text-on-primary md:w-64 md:shrink-0 md:min-h-screen px-4 pt-4 pb-2 md:pb-4 flex flex-col gap-3 md:gap-6 print:hidden">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2.5 min-w-0 font-display font-extrabold text-lg md:text-base leading-tight">
+          <Image src="/logo.png" alt="" width={36} height={36} className="rounded-lg shrink-0" priority />
+          <span>{brand.name}</span>
+        </div>
+        <form action={signOut} className="md:hidden shrink-0">
+          <button type="submit" className="rounded-lg px-3 py-2 text-sm font-semibold whitespace-nowrap hover:bg-white/10">
+            Abmelden
+          </button>
+        </form>
       </div>
-      <ul className="flex md:flex-col gap-1 md:flex-1">
+      <ul className="flex md:flex-col gap-1 md:flex-1 overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0 pb-1">
         {items.map((item) => {
           const active = item.href === "/" ? path === "/" : path.startsWith(item.href);
           return (
@@ -41,7 +50,7 @@ export function Nav() {
           );
         })}
       </ul>
-      <form action={signOut}>
+      <form action={signOut} className="hidden md:block">
         <button type="submit" className="rounded-lg px-3 py-2 text-sm font-semibold whitespace-nowrap hover:bg-white/10">
           Abmelden
         </button>
