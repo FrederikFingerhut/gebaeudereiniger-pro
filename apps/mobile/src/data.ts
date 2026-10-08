@@ -79,42 +79,56 @@ export function errorText(error: { message?: string } | null | undefined): TextK
   return key ? (`err_${key}` as TextKey) : "networkError";
 }
 
-export async function clockIn(visitId: string, place: { latitude: number; longitude: number } | { token: string }) {
+export type Place = { latitude: number; longitude: number } | { token: string };
+
+/** `at`: Zeitpunkt, wenn ohne Netz gestempelt und später gesendet wird. */
+export async function clockIn(visitId: string, place: Place, at?: string) {
   const args = "token" in place
-    ? { p_visit_id: visitId, p_token: place.token }
-    : { p_visit_id: visitId, p_latitude: place.latitude, p_longitude: place.longitude };
+    ? { p_visit_id: visitId, p_token: place.token, p_at: at }
+    : { p_visit_id: visitId, p_latitude: place.latitude, p_longitude: place.longitude, p_at: at };
   const { data, error } = await supabase.rpc("clock_in", args);
   if (error) throw error;
   return data as TimeEntryRow;
 }
 
-export async function clockOut(entryId: string) {
-  const { error } = await supabase.rpc("clock_out", { p_entry_id: entryId });
+export async function clockOut(entryId: string, at?: string) {
+  const { error } = await supabase.rpc("clock_out", { p_entry_id: entryId, p_at: at });
   if (error) throw error;
+}
+
+/** Offener Zeiteintrag; beim Nachsenden kennt die App seine Nummer noch nicht. */
+export async function openEntryId(userId: string): Promise<string | null> {
+  const { data, error } = await supabase.from("time_entries").select("id").eq("employee_id", userId).is("clock_out_at", null).maybeSingle();
+  if (error) throw error;
+  return data?.id ?? null;
 }
 
 export async function setChecked(profile: ProfileRow, visitId: string, itemId: string, on: boolean) {
   const { error } = on
-    ? await supabase.from("checklist_checks").insert({ visit_id: visitId, checklist_item_id: itemId, company_id: profile.company_id, checked_by: profile.id })
+    ? await supabase.from("checklist_checks").upsert({ visit_id: visitId, checklist_item_id: itemId, company_id: profile.company_id, checked_by: profile.id }, { onConflict: "visit_id,checklist_item_id", ignoreDuplicates: true })
     : await supabase.from("checklist_checks").delete().eq("visit_id", visitId).eq("checklist_item_id", itemId);
   if (error) throw error;
 }
 
 export type ReportKind = "problem" | "material";
 
-/** Ein Foto für eine Meldung: verkleinert, damit es auch im Funkloch schnell hochgeht. */
+/** Ein Foto für eine Meldung, schon verkleinert (JPEG als Base64), damit es auch offline gespeichert werden kann. */
 export interface ReportPhoto {
   uri: string;
-  width: number;
+  base64: string;
 }
 
 const PHOTO_WIDTH = 1600;
 
-async function uploadPhoto(profile: ProfileRow, photo: ReportPhoto): Promise<string> {
-  let context = ImageManipulator.manipulate(photo.uri);
-  if (photo.width > PHOTO_WIDTH) context = context.resize({ width: PHOTO_WIDTH });
+export async function preparePhoto(uri: string, width: number): Promise<ReportPhoto> {
+  let context = ImageManipulator.manipulate(uri);
+  if (width > PHOTO_WIDTH) context = context.resize({ width: PHOTO_WIDTH });
   const image = await (await context.renderAsync()).saveAsync({ compress: 0.7, format: SaveFormat.JPEG, base64: true });
-  const bytes = Uint8Array.from(atob(image.base64 ?? ""), (ch) => ch.charCodeAt(0));
+  return { uri: image.uri, base64: image.base64 ?? "" };
+}
+
+async function uploadPhoto(profile: ProfileRow, base64: string): Promise<string> {
+  const bytes = Uint8Array.from(atob(base64), (ch) => ch.charCodeAt(0));
   // Ordner = Firma/Mitarbeiter; daran hängen die Zugriffsregeln im Speicher.
   const path = `${profile.company_id}/${profile.id}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`;
   const { error } = await supabase.storage.from("fotos").upload(path, bytes, { contentType: "image/jpeg" });
@@ -122,19 +136,51 @@ async function uploadPhoto(profile: ProfileRow, photo: ReportPhoto): Promise<str
   return path;
 }
 
-export async function sendReport(profile: ProfileRow, visit: MyVisit, kind: ReportKind, text: string, photos: ReportPhoto[]) {
+export interface NewReport {
+  visitId: string;
+  siteId: string;
+  kind: ReportKind;
+  text: string;
+  photos: string[];
+}
+
+export async function sendReport(profile: ProfileRow, report: NewReport) {
   const photoPaths = [];
-  for (const photo of photos) photoPaths.push(await uploadPhoto(profile, photo));
+  for (const photo of report.photos) photoPaths.push(await uploadPhoto(profile, photo));
   const { error } = await supabase.from("reports").insert({
     company_id: profile.company_id,
-    site_id: visit.siteId,
-    visit_id: visit.id,
+    site_id: report.siteId,
+    visit_id: report.visitId,
     author_id: profile.id,
-    kind,
-    text,
+    kind: report.kind,
+    text: report.text,
     photo_paths: photoPaths,
   });
   if (error) throw error;
+}
+
+export interface MyReport {
+  id: string;
+  kind: ReportKind | "reklamation";
+  text: string;
+  status: "offen" | "erledigt";
+  created_at: string;
+  photoCount: number;
+  siteName: string;
+}
+
+export async function loadMyReports(userId: string): Promise<MyReport[]> {
+  const { data, error } = await supabase
+    .from("reports")
+    .select("id, kind, text, status, created_at, photo_paths, sites(name)")
+    .eq("author_id", userId)
+    .order("created_at", { ascending: false })
+    .limit(30);
+  if (error) throw error;
+  return (data ?? []).map((r) => {
+    const site = (Array.isArray(r.sites) ? r.sites[0] : r.sites) as { name: string } | null;
+    return { id: r.id, kind: r.kind, text: r.text, status: r.status, created_at: r.created_at, photoCount: (r.photo_paths ?? []).length, siteName: site?.name ?? "" };
+  });
 }
 
 export async function reportSick(profile: ProfileRow) {
