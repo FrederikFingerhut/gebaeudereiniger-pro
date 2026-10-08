@@ -178,3 +178,23 @@ set role authenticated;
 set request.jwt.claim.sub = '10000000-0000-0000-0000-000000000003';
 select pg_temp.expect('Firma B sieht keine Fotos von A', (select count(*) from storage.objects), 0);
 reset role;
+
+-- Offline stempeln: Zeit wird nachgereicht
+insert into visits (id, company_id, site_id, employee_id, date, start_time, planned_minutes) values
+  ('40000000-0000-0000-0000-000000000003', '00000000-0000-0000-0000-00000000000a', '30000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000002', ((now() - interval '3 hours') at time zone 'Europe/Berlin')::date, '18:00', 60);
+set role authenticated;
+set request.jwt.claim.sub = '10000000-0000-0000-0000-000000000002';
+select pg_temp.expect_error('Ausstempeln in der Zukunft blockiert',
+  $q$select clock_out((select id from time_entries where clock_out_at is null), now() + interval '1 hour')$q$, 'zeit_ungueltig');
+select pg_temp.expect_error('Ausstempeln vor 13 Stunden blockiert',
+  $q$select clock_out((select id from time_entries where clock_out_at is null), now() - interval '13 hours')$q$, 'zeit_ungueltig');
+select clock_out((select id from time_entries where clock_out_at is null));
+select pg_temp.expect('Nachgereichtes Einstempeln wird markiert',
+  (select count(*) from clock_in('40000000-0000-0000-0000-000000000003', 52.3762, 9.7318, p_at => now() - interval '3 hours')
+   where clock_in_late and clock_in_at < now() - interval '2 hours'), 1);
+select pg_temp.expect('Nachgereichtes Ausstempeln wird markiert',
+  (select count(*) from clock_out((select id from time_entries where clock_out_at is null), now() - interval '1 hour')
+   where clock_out_late and clock_out_at > clock_in_at), 1);
+select pg_temp.expect('Normales Stempeln ist nicht markiert',
+  (select count(*) from time_entries where method = 'qr' and not clock_in_late and not clock_out_late), 1);
+reset role;

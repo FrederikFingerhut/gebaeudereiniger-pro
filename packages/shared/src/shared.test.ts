@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addDays, brand, decimalHours, hoursCsv, monthRange, monthlyHours, logoSvg, berlinDate, buildInvoiceDrafts, checklistTitle, clockErrorKey, clockErrors, compareSiteHours, expandSeries, isoWeekday, mondayOf, siteFromRow, texts, visitFromRow, workedMinutes } from "./index";
+import { addDays, brand, decimalHours, hoursCsv, monthRange, monthlyHours, logoSvg, berlinDate, buildInvoiceDrafts, checklistTitle, clockErrorKey, clockErrors, isNetworkError, compareSiteHours, expandSeries, isoWeekday, mondayOf, siteFromRow, texts, visitFromRow, workedMinutes } from "./index";
 import type { Site } from "./types";
 
 describe("Einsatzplanung", () => {
@@ -91,6 +91,7 @@ describe("Datenbank", () => {
   it("erkennt Stempel-Fehler und hat Texte dafür", () => {
     expect(clockErrorKey("nicht_am_objekt")).toBe("nicht_am_objekt");
     expect(clockErrorKey("irgendwas")).toBeNull();
+    expect(clockErrorKey("zeit_ungueltig")).toBe("zeit_ungueltig");
     for (const key of clockErrors) expect(texts.de[`err_${key}`]).toBeTruthy();
   });
 });
@@ -154,5 +155,15 @@ describe("Monatsübersicht Stunden", () => {
     expect(lines[0]).toBe("Monat;Mitarbeiter;Objekt;Einsätze;Geplant (Std.);Gestempelt (Std.);Differenz (Std.)");
     expect(lines).toContain('2026-10;"Oksana; K.";Praxis Dr. Meyer;2;3,00;3,00;0,00');
     expect(lines.at(-1)).toBe('2026-10;"Oksana; K.";Summe;2;3,00;3,50;0,50');
+  });
+});
+
+describe("Offline", () => {
+  it("erkennt fehlendes Netz", () => {
+    expect(isNetworkError({ message: "TypeError: Failed to fetch" })).toBe(true);
+    expect(isNetworkError({ message: "Network request failed" })).toBe(true);
+    expect(isNetworkError({ message: "nicht_am_objekt", code: "P0001" })).toBe(false);
+    expect(isNetworkError({ message: "fetch failed", status: 500 })).toBe(false);
+    expect(isNetworkError(null)).toBe(false);
   });
 });

@@ -159,9 +159,20 @@ export const clockErrors = [
   "kein_standort",
   "nicht_am_objekt",
   "standort_fehlt",
+  "zeit_ungueltig",
   "nicht_eingestempelt",
 ] as const;
 export type ClockError = (typeof clockErrors)[number];
+
+/**
+ * Kein Netz? Dann kam die Anfrage gar nicht beim Server an (kein Fehlercode).
+ * Solche Aktionen merkt sich die App und sendet sie später.
+ */
+export function isNetworkError(error: { message?: string; code?: string; status?: number } | null | undefined): boolean {
+  if (!error) return false;
+  if (error.code || (error.status && error.status >= 400)) return false;
+  return /fetch|network|offline|timeout|abort/i.test(error.message ?? "");
+}
 
 /** Erkennt den Fehler-Schlüssel in einer Datenbank-Fehlermeldung. */
 export function clockErrorKey(message: string | undefined | null): ClockError | null {

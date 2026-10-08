@@ -4,11 +4,13 @@
   "main": "index.ts",
   "dependencies": {
     "@expo/metro-runtime": "~57.0.16",
+    "@expo/vector-icons": "^15.1.1",
     "@gp/shared": "*",
     "@react-native-async-storage/async-storage": "^2.2.0",
     "@supabase/supabase-js": "^2.117.3",
     "expo": "~57.0.27",
     "expo-camera": "~57.0.6",
+    "expo-haptics": "~57.0.3",
     "expo-image-manipulator": "~57.0.21",
     "expo-image-picker": "~57.0.20",
     "expo-location": "~57.0.20",
