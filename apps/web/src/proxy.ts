@@ -3,7 +3,7 @@ import { createServerClient } from "@supabase/ssr";
 import { supabaseConfig } from "@gp/shared";
 
 // Frischt bei jedem Aufruf die Anmeldung auf und schickt Nicht-Angemeldete zur Anmeldung.
-const PUBLIC = ["/anmelden", "/registrieren"];
+const PUBLIC = ["/anmelden", "/registrieren", "/passwort-vergessen", "/auth/"];
 
 export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request });

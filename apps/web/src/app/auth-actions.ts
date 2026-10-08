@@ -52,3 +52,24 @@ export async function signOut() {
   await supabase.auth.signOut();
   redirect("/anmelden");
 }
+
+export async function requestPasswordReset(_: FormState, data: FormData): Promise<FormState> {
+  const supabase = await db();
+  const origin = (await headers()).get("origin") ?? "";
+  // Der Link in der Mail führt über /auth/bestaetigen zu /passwort-neu.
+  const { error } = await supabase.auth.resetPasswordForEmail(text(data, "email"), { redirectTo: `${origin}/auth/bestaetigen` });
+  if (error?.status === 429) return { error: "Zu viele Versuche. Bitte in ein paar Minuten nochmal." };
+  // Gleiche Antwort, ob es die Adresse gibt oder nicht.
+  return { ok: "Wenn es zu dieser Adresse einen Zugang gibt, ist jetzt eine E-Mail unterwegs." };
+}
+
+export async function setNewPassword(_: FormState, data: FormData): Promise<FormState> {
+  const password = String(data.get("password") ?? "");
+  if (password.length < 8) return { error: "Das Passwort braucht mindestens 8 Zeichen." };
+  const supabase = await db();
+  const { data: claims } = await supabase.auth.getClaims();
+  if (!claims?.claims) return { error: "Der Link ist abgelaufen. Bitte unter „Passwort vergessen“ einen neuen anfordern." };
+  const { error } = await supabase.auth.updateUser({ password });
+  if (error) return { error: "Das Passwort konnte nicht gespeichert werden. Bitte ein anderes wählen." };
+  redirect("/");
+}
