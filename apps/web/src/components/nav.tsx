@@ -11,6 +11,7 @@ const items = [
   { href: "/planung", label: "Einsatzplan" },
   { href: "/objekte", label: "Objekte" },
   { href: "/mitarbeiter", label: "Mitarbeiter" },
+  { href: "/stunden", label: "Stunden" },
   { href: "/rechnungen", label: "Rechnungen" },
 ];
 

@@ -34,9 +34,17 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "Zum Einstempeln per QR-Code im Objekt.",
+          "cameraPermission": "Zum Einstempeln per QR-Code und für Fotos bei Meldungen.",
           "microphonePermission": false,
           "recordAudioAndroid": false
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Damit du Fotos an Meldungen fürs Büro anhängen kannst.",
+          "cameraPermission": "Zum Einstempeln per QR-Code und für Fotos bei Meldungen.",
+          "microphonePermission": false
         }
       ]
     ]
