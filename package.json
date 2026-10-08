@@ -1,0 +1,11 @@
+{
+  "name": "gebaeudereiniger-pro",
+  "private": true,
+  "workspaces": ["apps/*", "packages/*"],
+  "scripts": {
+    "web": "npm run dev -w web",
+    "mobile": "npm run start -w mobile",
+    "test": "npm run test -w @gp/shared",
+    "typecheck": "npm run typecheck -w @gp/shared && npm run typecheck -w web && npm run typecheck -w mobile"
+  }
+}
