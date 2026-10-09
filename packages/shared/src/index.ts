@@ -13,3 +13,4 @@ export * from "./profit";
 export * from "./notifications";
 export * from "./push";
 export * from "./quality";
+export * from "./chat";

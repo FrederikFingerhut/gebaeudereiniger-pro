@@ -1,6 +1,8 @@
 import {
   berlinDate,
+  cleanChatText,
   clockErrorKey,
+  type ChatMessage,
   siteFromRow,
   visitFromRow,
   type ChecklistItemRow,
@@ -207,6 +209,7 @@ export async function loadMessages(userId: string): Promise<Message[]> {
     .from("notifications")
     .select("id, kind, params, created_at, read_at")
     .eq("user_id", userId)
+    .neq("kind", "chat")
     .order("created_at", { ascending: false })
     .limit(50);
   if (error) throw error;
@@ -214,12 +217,55 @@ export async function loadMessages(userId: string): Promise<Message[]> {
 }
 
 export async function unreadCount(userId: string): Promise<number> {
-  const { count } = await supabase.from("notifications").select("id", { count: "exact", head: true }).eq("user_id", userId).is("read_at", null);
+  const { count } = await supabase.from("notifications").select("id", { count: "exact", head: true }).eq("user_id", userId).neq("kind", "chat").is("read_at", null);
   return count ?? 0;
 }
 
 export async function markAllRead(userId: string) {
-  await supabase.from("notifications").update({ read_at: new Date().toISOString() }).eq("user_id", userId).is("read_at", null);
+  await supabase.from("notifications").update({ read_at: new Date().toISOString() }).eq("user_id", userId).neq("kind", "chat").is("read_at", null);
+}
+
+// Chat mit der Leitung -----------------------------------------------------------------
+
+export type ChatEntry = ChatMessage & { authorName: string | null };
+
+/** Eigenes Gespräch mit der Leitung, älteste zuerst. */
+export async function loadChat(userId: string): Promise<ChatEntry[]> {
+  const { data, error } = await supabase
+    .from("chat_messages")
+    .select("id, employee_id, author_id, body, created_at, profiles!chat_messages_author_id_fkey(full_name)")
+    .eq("employee_id", userId)
+    .order("created_at", { ascending: false })
+    .limit(200);
+  if (error) throw error;
+  return (data ?? [])
+    .map((m) => {
+      const author = m.profiles as unknown as { full_name: string } | { full_name: string }[] | null;
+      return { ...m, authorName: (Array.isArray(author) ? author[0] : author)?.full_name ?? null } as ChatEntry;
+    })
+    .reverse();
+}
+
+export async function sendChat(profile: ProfileRow, body: string) {
+  const text = cleanChatText(body);
+  if (!text) return;
+  const { error } = await supabase.from("chat_messages").insert({ company_id: profile.company_id, employee_id: profile.id, author_id: profile.id, body: text });
+  if (error) throw error;
+}
+
+export async function markChatRead(profile: ProfileRow) {
+  await supabase
+    .from("chat_reads")
+    .upsert({ user_id: profile.id, employee_id: profile.id, company_id: profile.company_id, last_read_at: new Date().toISOString() });
+}
+
+/** Ungelesene Antworten der Leitung für das Zeichen am Reiter. */
+export async function chatUnreadCount(userId: string): Promise<number> {
+  const { data: read } = await supabase.from("chat_reads").select("last_read_at").eq("user_id", userId).eq("employee_id", userId).maybeSingle();
+  let query = supabase.from("chat_messages").select("id", { count: "exact", head: true }).eq("employee_id", userId).neq("author_id", userId);
+  if (read?.last_read_at) query = query.gt("created_at", read.last_read_at);
+  const { count } = await query;
+  return count ?? 0;
 }
 
 // Urlaub und Krank --------------------------------------------------------------------

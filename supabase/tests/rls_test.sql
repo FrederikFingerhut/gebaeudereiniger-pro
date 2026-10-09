@@ -320,3 +320,33 @@ update absences set approved = true where employee_id = '10000000-0000-0000-0000
 set request.jwt.claim.sub = '10000000-0000-0000-0000-000000000002';
 select pg_temp.expect('Mitarbeiterin erfährt Bestätigung', (select count(*) from notifications where kind = 'absence_ok'), 1);
 reset role;
+
+-- Chat: Mitarbeiterin schreibt der Leitung, sieht nur ihr eigenes Gespräch
+insert into auth.users values ('10000000-0000-0000-0000-000000000006');
+insert into profiles (id, company_id, full_name, role, language) values
+  ('10000000-0000-0000-0000-000000000006', '00000000-0000-0000-0000-00000000000a', 'Pawel', 'mitarbeiter', 'ru');
+set role authenticated;
+set request.jwt.claim.sub = '10000000-0000-0000-0000-000000000002';
+insert into chat_messages (company_id, employee_id, author_id, body) values
+  ('00000000-0000-0000-0000-00000000000a', '10000000-0000-0000-0000-000000000002', '10000000-0000-0000-0000-000000000002', 'Schlüssel fehlt im Lager');
+insert into chat_messages (company_id, employee_id, author_id, body) values
+  ('00000000-0000-0000-0000-00000000000a', '10000000-0000-0000-0000-000000000002', '10000000-0000-0000-0000-000000000002', 'Bin jetzt drin');
+select pg_temp.expect_error('Mitarbeiterin schreibt nicht in fremdes Gespräch',
+  $q$insert into chat_messages (company_id, employee_id, author_id, body) values ('00000000-0000-0000-0000-00000000000a', '10000000-0000-0000-0000-000000000006', '10000000-0000-0000-0000-000000000002', 'x')$q$,
+  'new row violates row-level security policy for table "chat_messages"');
+set request.jwt.claim.sub = '10000000-0000-0000-0000-000000000001';
+select pg_temp.expect('Chef liest Chat', (select count(*) from chat_messages), 2);
+select pg_temp.expect('Chef bekommt eine Chat-Benachrichtigung', (select count(*) from notifications where kind = 'chat'), 1);
+insert into chat_messages (company_id, employee_id, author_id, body) values
+  ('00000000-0000-0000-0000-00000000000a', '10000000-0000-0000-0000-000000000002', '10000000-0000-0000-0000-000000000001', 'Danke, Hausmeister ist informiert');
+insert into chat_reads (user_id, employee_id, company_id) values
+  ('10000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000002', '00000000-0000-0000-0000-00000000000a');
+set request.jwt.claim.sub = '10000000-0000-0000-0000-000000000002';
+select pg_temp.expect('Mitarbeiterin bekommt Antwort', (select count(*) from notifications where kind = 'chat'), 1);
+set request.jwt.claim.sub = '10000000-0000-0000-0000-000000000006';
+select pg_temp.expect('Kollege sieht fremden Chat nicht', (select count(*) from chat_messages), 0);
+set request.jwt.claim.sub = '10000000-0000-0000-0000-000000000005';
+select pg_temp.expect('Kunde sieht keinen Chat', (select count(*) from chat_messages), 0);
+set request.jwt.claim.sub = '10000000-0000-0000-0000-000000000003';
+select pg_temp.expect('Andere Firma sieht keinen Chat', (select count(*) from chat_messages), 0);
+reset role;

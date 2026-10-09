@@ -6,8 +6,9 @@ import { Ionicons } from "@expo/vector-icons";
 import type { Session } from "@supabase/supabase-js";
 import { brand, isNetworkError, languages, t, type Language, type ProfileRow, type TextKey } from "@gp/shared";
 import { supabase } from "./src/supabase";
-import { loadDay, loadMyReports, loadProfile, saveLanguage, unreadCount, type Day, type MyReport, type MyVisit } from "./src/data";
+import { chatUnreadCount, loadDay, loadMyReports, loadProfile, saveLanguage, unreadCount, type Day, type MyReport, type MyVisit } from "./src/data";
 import { Absences, Messages, PushSwitch } from "./src/Extras";
+import { Chat } from "./src/Chat";
 import { registerServiceWorker } from "./src/push";
 import { applyToDay, cachedDay, enqueue, flush, loadOutbox, perform, saveDay, type Action } from "./src/outbox";
 import { VisitDetail, formatDuration } from "./src/VisitDetail";
@@ -268,7 +269,7 @@ function useDay(profile: ProfileRow, notify: (key: TextKey) => void) {
   return { day, offline, pending, reload, act, setOffline };
 }
 
-type Tab = "today" | "reports" | "messages" | "profile";
+type Tab = "today" | "chat" | "reports" | "messages" | "profile";
 
 function Home({ lang, changeLang, profile, notify }: { lang: Language; changeLang: (l: Language) => void; profile: ProfileRow; notify: (key: TextKey) => void }) {
   const { day, offline, pending, reload, act } = useDay(profile, notify);
@@ -276,9 +277,14 @@ function Home({ lang, changeLang, profile, notify }: { lang: Language; changeLan
   const [openId, setOpenId] = useState<string | null>(null);
   const [celebrate, setCelebrate] = useState(false);
   const [unread, setUnread] = useState(0);
+  const [chatUnread, setChatUnread] = useState(0);
 
   // Ungelesene Nachrichten für das Zeichen am Reiter, beim Öffnen der App und jede Minute.
-  const countUnread = useCallback(() => unreadCount(profile.id).then(setUnread).catch(() => {}), [profile.id]);
+  const countUnread = useCallback(() => {
+    unreadCount(profile.id).then(setUnread).catch(() => {});
+    chatUnreadCount(profile.id).then(setChatUnread).catch(() => {});
+  }, [profile.id]);
+  const chatRead = useCallback(() => setChatUnread(0), []);
   useEffect(() => {
     countUnread();
     const timer = setInterval(countUnread, 60_000);
@@ -322,6 +328,12 @@ function Home({ lang, changeLang, profile, notify }: { lang: Language; changeLan
         <Today lang={lang} day={day} onOpen={setOpenId} reload={reload} />
       </FadeIn>
     );
+  else if (tab === "chat")
+    screen = (
+      <FadeIn key="chat">
+        <Chat lang={lang} profile={profile} onRead={chatRead} />
+      </FadeIn>
+    );
   else if (tab === "reports")
     screen = (
       <FadeIn key="reports">
@@ -358,8 +370,9 @@ function Home({ lang, changeLang, profile, notify }: { lang: Language; changeLan
         }}
         tabs={[
           { key: "today", label: t(lang, "tabToday"), icon: "today-outline" },
-          { key: "reports", label: t(lang, "tabReports"), icon: "chatbubble-ellipses-outline" },
-          { key: "messages", label: t(lang, "notifications"), icon: "notifications-outline", badge: unread },
+          { key: "chat", label: t(lang, "tabChat"), icon: "chatbubbles-outline", badge: tab === "chat" ? 0 : chatUnread },
+          { key: "reports", label: t(lang, "tabReports"), icon: "megaphone-outline" },
+          { key: "messages", label: t(lang, "tabNews"), icon: "notifications-outline", badge: unread },
           { key: "profile", label: t(lang, "tabProfile"), icon: "person-circle-outline" },
         ]}
       />

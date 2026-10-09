@@ -11,6 +11,7 @@ import { ThemeToggle } from "./theme-toggle";
 
 const items = [
   { href: "/", label: "Übersicht" },
+  { href: "/chat", label: "Chat" },
   { href: "/planung", label: "Einsatzplan" },
   { href: "/objekte", label: "Objekte" },
   { href: "/qualitaet", label: "Qualität" },
@@ -36,16 +37,17 @@ export function Nav() {
           <Image src="/logo.png" alt="" width={36} height={36} className="rounded-lg shrink-0" priority />
           <span>{brand.name}</span>
         </div>
-        <div className="flex items-center gap-0.5 shrink-0">
-          <Search pages={items} />
-          <ThemeToggle />
-          <Bell />
-          <form action={signOut} className="md:hidden">
-            <button type="submit" className="rounded-lg px-3 py-2 text-sm font-semibold whitespace-nowrap hover:bg-white/10">
-              Abmelden
-            </button>
-          </form>
-        </div>
+        <form action={signOut} className="md:hidden shrink-0">
+          <button type="submit" className="rounded-lg px-3 py-2 text-sm font-semibold whitespace-nowrap hover:bg-white/10">
+            Abmelden
+          </button>
+        </form>
+      </div>
+      {/* Eigene Zeile für Suche, Farbmodus und Glocke, damit nichts in den Namen rutscht. */}
+      <div className="flex items-center gap-1">
+        <Search pages={items} />
+        <ThemeToggle />
+        <Bell />
       </div>
       <ul className="flex md:flex-col gap-1 md:flex-1 overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0 pb-1">
         {items.map((item) => {

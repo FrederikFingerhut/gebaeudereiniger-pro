@@ -108,6 +108,14 @@ const de = {
   n_report_new: "Neue Meldung",
   n_complaint_new: "Reklamation vom Kunden",
   n_report_body: "{site}: {text} ({name})",
+  n_chat: "Nachricht von {name}",
+  n_chat_body: "{text}",
+  tabChat: "Chat",
+  tabNews: "Neues",
+  chatHint: "Schreib dem Büro, deinem Vorarbeiter oder dem Chef. Alle aus der Leitung sehen deine Nachrichten.",
+  chatPlaceholder: "Nachricht schreiben …",
+  chatEmpty: "Noch keine Nachrichten.",
+  management: "Leitung",
 };
 
 export type TextKey = keyof typeof de;
@@ -219,6 +227,14 @@ const en: Record<TextKey, string> = {
   n_report_new: "New report",
   n_complaint_new: "Customer complaint",
   n_report_body: "{site}: {text} ({name})",
+  n_chat: "Message from {name}",
+  n_chat_body: "{text}",
+  tabChat: "Chat",
+  tabNews: "News",
+  chatHint: "Write to the office, your supervisor or the boss. Everyone in management sees your messages.",
+  chatPlaceholder: "Write a message …",
+  chatEmpty: "No messages yet.",
+  management: "Management",
 };
 
 const ru: Record<TextKey, string> = {
@@ -328,6 +344,14 @@ const ru: Record<TextKey, string> = {
   n_report_new: "Новое сообщение",
   n_complaint_new: "Жалоба клиента",
   n_report_body: "{site}: {text} ({name})",
+  n_chat: "Сообщение от {name}",
+  n_chat_body: "{text}",
+  tabChat: "Чат",
+  tabNews: "Новое",
+  chatHint: "Напишите офису, бригадиру или начальнику. Все руководители видят ваши сообщения.",
+  chatPlaceholder: "Написать сообщение …",
+  chatEmpty: "Сообщений пока нет.",
+  management: "Руководство",
 };
 
 const uk: Record<TextKey, string> = {
@@ -437,6 +461,14 @@ const uk: Record<TextKey, string> = {
   n_report_new: "Нове повідомлення",
   n_complaint_new: "Скарга клієнта",
   n_report_body: "{site}: {text} ({name})",
+  n_chat: "Повідомлення від {name}",
+  n_chat_body: "{text}",
+  tabChat: "Чат",
+  tabNews: "Нове",
+  chatHint: "Напишіть офісу, бригадиру або керівнику. Усі керівники бачать ваші повідомлення.",
+  chatPlaceholder: "Написати повідомлення …",
+  chatEmpty: "Повідомлень ще немає.",
+  management: "Керівництво",
 };
 
 export const texts: Record<Language, Record<TextKey, string>> = { de, en, ru, uk };
