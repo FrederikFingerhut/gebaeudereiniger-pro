@@ -6,6 +6,7 @@ import { ActionForm, Field, inputClass } from "@/components/action-form";
 import { requireMe } from "@/lib/supabase";
 import { dayLabel } from "@/lib/format";
 import { createSeries, endSeries, reassignVisit } from "./actions";
+import { WeekBoard } from "./board";
 
 const WEEKDAYS = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"];
 
@@ -37,16 +38,13 @@ async function Planning({ searchParams }: { searchParams: PageProps<"/planung">[
   ]);
   const staff = (people ?? []) as ProfileRow[];
   const name = (id: string | null) => staff.find((p) => p.id === id)?.full_name ?? "nicht besetzt";
-  const initials = (id: string | null) => name(id).split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase();
   const siteName = (id: string) => sites?.find((s) => s.id === id)?.name ?? "";
   const rows = (visits ?? []) as VisitRow[];
-  const showWeekend = rows.some((v) => days.indexOf(v.date) >= 5);
-  const shownDays = showWeekend ? days : days.slice(0, 5);
 
   return (
     <div className="flex flex-col gap-4">
       <Card
-        title={`Woche ${dayLabel(days[0])} bis ${dayLabel(shownDays[shownDays.length - 1])}`}
+        title={`Woche ${dayLabel(days[0])} bis ${dayLabel(days[6])}`}
         action={
           <div className="flex gap-2 text-sm font-semibold">
             <Link className="rounded-lg bg-soft px-3 py-1.5" href={`/planung?woche=${addDays(week, -7)}`}>‹ Vorher</Link>
@@ -56,42 +54,11 @@ async function Planning({ searchParams }: { searchParams: PageProps<"/planung">[
         }
       >
         {(sites ?? []).length === 0 && <p className="text-sm text-muted">Lege zuerst unter „Objekte“ ein Objekt an.</p>}
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="text-left text-[11px] uppercase tracking-wider text-muted">
-                <th className="py-2 pr-3 font-semibold">Objekt</th>
-                {shownDays.map((d) => (
-                  <th key={d} className="py-2 px-2 font-semibold whitespace-nowrap">{dayLabel(d)}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-line">
-              {(sites ?? []).map((site) => (
-                <tr key={site.id}>
-                  <td className="py-2 pr-3 whitespace-nowrap">{site.name}</td>
-                  {shownDays.map((date) => (
-                    <td key={date} className="py-2 px-2">
-                      <div className="flex gap-1">
-                        {rows
-                          .filter((v) => v.site_id === site.id && v.date === date)
-                          .map((v) => (
-                            <span
-                              key={v.id}
-                              title={`${v.start_time.slice(0, 5)} Uhr, ${name(v.employee_id)}`}
-                              className={`inline-grid place-items-center size-8 rounded-full text-[11px] font-bold ${v.status === "ausgefallen" ? "bg-soft text-bad line-through" : v.status === "erledigt" ? "bg-ok text-on-primary" : "bg-soft"}`}
-                            >
-                              {initials(v.employee_id)}
-                            </span>
-                          ))}
-                      </div>
-                    </td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <WeekBoard
+          days={days}
+          staff={staff.map((p) => ({ id: p.id, name: p.full_name }))}
+          visits={rows.map((v) => ({ id: v.id, siteName: siteName(v.site_id), employeeId: v.employee_id, date: v.date, startTime: v.start_time, status: v.status }))}
+        />
       </Card>
 
       <Card title="Einsätze dieser Woche umplanen">

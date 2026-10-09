@@ -218,3 +218,33 @@ select pg_temp.expect('Chef sieht Kalkulation', (select count(*) from calc_setti
 insert into price_guides (company_id, title, unit, price_cents) values ('00000000-0000-0000-0000-00000000000a', 'Grundreinigung', 'stunde', 3500);
 select pg_temp.expect('Chef legt Richtpreis an', (select count(*) from price_guides), 2);
 reset role;
+
+-- Angebote und Lexoffice-Schlüssel: nur Büro und Chef
+grant all on all tables in schema public to authenticated;
+insert into offers (company_id, number, recipient, title) values
+  ('00000000-0000-0000-0000-00000000000a', 'A-1', 'Kunde A', 'Unterhaltsreinigung'),
+  ('00000000-0000-0000-0000-00000000000b', 'A-1', 'Kunde B', 'Glasreinigung');
+insert into company_integrations (company_id, lexoffice_api_key) values
+  ('00000000-0000-0000-0000-00000000000a', 'geheim-a'),
+  ('00000000-0000-0000-0000-00000000000b', 'geheim-b');
+set role authenticated;
+set request.jwt.claim.sub = '10000000-0000-0000-0000-000000000002';
+select pg_temp.expect('Mitarbeiterin sieht keine Angebote', (select count(*) from offers), 0);
+select pg_temp.expect('Mitarbeiterin sieht keinen Lexoffice-Schlüssel', (select count(*) from company_integrations), 0);
+select pg_temp.expect_error('Mitarbeiterin legt keine Angebote an',
+  $q$insert into offers (company_id, number, recipient, title) values ('00000000-0000-0000-0000-00000000000a', 'A-2', 'x', 'x')$q$,
+  'new row violates row-level security policy for table "offers"');
+set request.jwt.claim.sub = '10000000-0000-0000-0000-000000000001';
+select pg_temp.expect('Chef sieht nur eigene Angebote', (select count(*) from offers), 1);
+select pg_temp.expect('Chef sieht nur eigenen Schlüssel', (select count(*) from company_integrations where lexoffice_api_key = 'geheim-a'), 1);
+select pg_temp.expect('Chef sieht keinen fremden Schlüssel', (select count(*) from company_integrations where lexoffice_api_key = 'geheim-b'), 0);
+reset role;
+
+-- Verschobener Serien-Einsatz wird nicht neu angelegt
+set role authenticated;
+set request.jwt.claim.sub = '10000000-0000-0000-0000-000000000001';
+update visits set moved_from = date, date = '2026-10-13'
+  where series_id is not null and date = '2026-10-12';
+select pg_temp.expect('Verschobener Einsatz kommt nicht doppelt', ensure_visits('2026-10-12', '2026-10-18'), 0);
+select pg_temp.expect('Einsatz liegt am neuen Tag', (select count(*) from visits where series_id is not null and date = '2026-10-13'), 1);
+reset role;

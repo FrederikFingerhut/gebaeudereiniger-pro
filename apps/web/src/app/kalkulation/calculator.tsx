@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
+import Link from "next/link";
 import { calculateOffer, formatEuro, marketRates, minimumRates, parseEuro, type CalcSettings, type RateKind } from "@gp/shared";
 import { saveCalcSettings } from "./actions";
 
@@ -49,6 +50,17 @@ export function Calculator({
   const market = marketRates.find((m) => m.title === category);
   const minimum = minimumRates[kind];
   const belowMinimum = r.rateCentsPerHour < minimum;
+  const offerText = [
+    kind === "unterhalt" ? `Unterhaltsreinigung ${category}`.trim() : `Grundreinigung ${category}`.trim(),
+    num(area) > 0 ? `ca. ${num(area).toLocaleString("de-DE")} m²` : "",
+    `${perWeek}× pro Woche`,
+  ].filter(Boolean).join(", ");
+  const offerHref = `/angebote/neu?${new URLSearchParams({
+    titel: kind === "unterhalt" ? "Angebot Unterhaltsreinigung" : "Angebot Grundreinigung",
+    text: offerText,
+    einheit: "Monat",
+    preis: String(r.priceCentsPerMonth),
+  })}`;
 
   return (
     <div className="flex flex-col gap-4 min-w-0">
@@ -160,6 +172,11 @@ export function Calculator({
           )}
           {belowMinimum && <p className="text-xs opacity-80 mt-1">Tipp: Gewinn oder Zuschläge unten erhöhen, damit du nicht unter Wert arbeitest.</p>}
         </div>
+        {r.priceCentsPerMonth > 0 && (
+          <Link href={offerHref} className="mt-4 inline-flex rounded-lg bg-signal text-on-signal px-4 py-2 text-sm font-bold">
+            Angebot erstellen
+          </Link>
+        )}
       </section>
 
       <form action={save} className="bg-surface border border-line rounded-2xl p-4">

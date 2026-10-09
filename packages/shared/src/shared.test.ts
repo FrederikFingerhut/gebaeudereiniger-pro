@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addDays, brand, calculateOffer, calculateYield, marketRates, minimumRates, defaultCalcSettings, parseEuro, decimalHours, hoursCsv, monthRange, monthlyHours, logoSvg, berlinDate, buildInvoiceDrafts, checklistTitle, clockErrorKey, clockErrors, isNetworkError, compareSiteHours, expandSeries, isoWeekday, mondayOf, siteFromRow, texts, visitFromRow, workedMinutes } from "./index";
+import { addDays, brand, lexofficeInvoice, nextOfferNumber, offerTotals, parseOfferLines, calculateOffer, calculateYield, marketRates, minimumRates, defaultCalcSettings, parseEuro, decimalHours, hoursCsv, monthRange, monthlyHours, logoSvg, berlinDate, buildInvoiceDrafts, checklistTitle, clockErrorKey, clockErrors, isNetworkError, compareSiteHours, expandSeries, isoWeekday, mondayOf, siteFromRow, texts, visitFromRow, workedMinutes } from "./index";
 import type { Site } from "./types";
 
 describe("Einsatzplanung", () => {
@@ -220,5 +220,44 @@ describe("Kalkulation", () => {
       expect(m.fromCents).toBeGreaterThanOrEqual(minimumRates[m.kind]);
       expect(m.toCents).toBeGreaterThanOrEqual(m.fromCents);
     }
+  });
+});
+
+describe("Angebote", () => {
+  it("rechnet Netto, Umsatzsteuer und Brutto", () => {
+    const t = offerTotals([
+      { description: "Unterhaltsreinigung", quantity: 1, unit: "Monat", unitPriceCents: 96097 },
+      { description: "Glasreinigung", quantity: 120, unit: "m²", unitPriceCents: 150 },
+    ]);
+    expect(t.netCents).toBe(96097 + 18000);
+    expect(t.vatCents).toBe(Math.round(114097 * 0.19));
+    expect(t.grossCents).toBe(t.netCents + t.vatCents);
+  });
+
+  it("zählt Angebotsnummern pro Jahr hoch", () => {
+    expect(nextOfferNumber([], 2026)).toBe("A-2026-001");
+    expect(nextOfferNumber(["A-2026-001", "A-2026-009", "A-2025-044"], 2026)).toBe("A-2026-010");
+  });
+
+  it("verwirft kaputte Positionen", () => {
+    expect(parseOfferLines(null)).toEqual([]);
+    expect(parseOfferLines([{ description: "", quantity: 1, unitPriceCents: 1 }, { description: "Büro", quantity: "2", unit: "Monat", unitPriceCents: 500 }]))
+      .toEqual([{ description: "Büro", quantity: 2, unit: "Monat", unitPriceCents: 500 }]);
+  });
+});
+
+describe("Lexoffice", () => {
+  it("baut einen Rechnungsentwurf mit Leistungszeitraum", () => {
+    const inv = lexofficeInvoice(
+      { customerId: "k1", period: "2026-02", totalNetCents: 52000, lines: [{ description: "Büro", quantity: 1, unitPriceCents: 40000 }, { description: "Treppenhaus", quantity: 4, unitPriceCents: 3000 }] },
+      "c-123",
+      "2026-03-01",
+    );
+    expect(inv.address).toEqual({ contactId: "c-123" });
+    expect(inv.lineItems[0].unitPrice).toEqual({ currency: "EUR", netAmount: 400, taxRatePercentage: 19 });
+    expect(inv.lineItems[1].quantity).toBe(4);
+    expect(inv.shippingConditions.shippingDate.startsWith("2026-02-01")).toBe(true);
+    expect(inv.shippingConditions.shippingEndDate.startsWith("2026-02-28")).toBe(true);
+    expect(inv.taxConditions).toEqual({ taxType: "net" });
   });
 });
