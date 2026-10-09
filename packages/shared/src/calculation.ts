@@ -103,3 +103,92 @@ export function parseEuro(value: string): number | null {
   const n = Number(normalized);
   return Number.isFinite(n) && n >= 0 ? Math.round(n * 100) : null;
 }
+
+// Ungefähre Marktwerte (Stand 2026) als Orientierung. Jede Firma prüft sie
+// gegen ihre eigenen Zahlen; sie ersetzen keine Kalkulation.
+
+/** Untergrenzen für den Stundensatz netto, darunter wird nicht angeboten. */
+export const minimumRates = {
+  /** Regelmäßige Unterhaltsreinigung */
+  unterhalt: 3150,
+  /** Grundreinigung und einmalige Projekte */
+  grund: 3650,
+} as const;
+
+export type RateKind = keyof typeof minimumRates;
+
+export interface MarketRate {
+  title: string;
+  /** Wofür der Wert gedacht ist, kurz */
+  hint: string;
+  kind: RateKind;
+  /** Leistungswert m² pro Stunde, wenn üblich */
+  m2PerHour: number | null;
+  fromCents: number;
+  toCents: number;
+}
+
+export const marketRates: MarketRate[] = [
+  { title: "Büro", hint: "Arbeitsplätze, Böden, Abfall", kind: "unterhalt", m2PerHour: 150, fromCents: 3150, toCents: 3650 },
+  { title: "Gewerbeobjekt", hint: "Standardobjekt mit klarem Leistungsverzeichnis", kind: "unterhalt", m2PerHour: 150, fromCents: 3150, toCents: 3650 },
+  { title: "Treppenhaus", hint: "Eingang, Stufen, Geländer, Briefkästen", kind: "unterhalt", m2PerHour: 200, fromCents: 3150, toCents: 3450 },
+  { title: "Schule und Kita", hint: "Stark genutzt, robuste Flächen", kind: "unterhalt", m2PerHour: 120, fromCents: 3150, toCents: 3650 },
+  { title: "Fitnessstudio", hint: "Geräte, Duschen, viele Kontaktflächen", kind: "unterhalt", m2PerHour: 100, fromCents: 3150, toCents: 3650 },
+  { title: "Sanitär intensiv", hint: "Mehr Reinigungsmittel und Zeit", kind: "unterhalt", m2PerHour: null, fromCents: 3150, toCents: 3650 },
+  { title: "Vertretung kurzfristig", hint: "Einspringen bei Urlaub oder Krankheit", kind: "unterhalt", m2PerHour: 100, fromCents: 3350, toCents: 3850 },
+];
+
+export interface YieldInput {
+  /** Richtpreis netto pro Stunde in Cent */
+  priceCentsPerHour: number;
+  /** Bruttolohn pro Stunde in Cent */
+  wageCentsPerHour: number;
+  /** Material pro Stunde in Cent */
+  materialCentsPerHour: number;
+  /** Verschleiß der Maschinen pro Stunde in Cent */
+  wearCentsPerHour: number;
+  /** Anfahrt pauschal je Reinigung in Cent */
+  travelCentsPerVisit: number;
+  /** Mannstunden je Reinigung (alle Kräfte zusammen) */
+  hoursPerVisit: number;
+  /** Anzahl Reinigungen (1 = einmalig, mehr = z. B. pro Monat) */
+  visits: number;
+}
+
+export interface YieldResult {
+  hours: number;
+  revenueCents: number;
+  wageCents: number;
+  materialCents: number;
+  travelCents: number;
+  costCents: number;
+  profitCents: number;
+  profitCentsPerHour: number;
+  profitCentsPerVisit: number;
+  /** Anteil des Ertrags am Umsatz in Prozent */
+  marginPercent: number;
+}
+
+/** Was bleibt übrig? Richtpreis mal Stunden minus Lohn, Material, Verschleiß und Anfahrt. */
+export function calculateYield(input: YieldInput): YieldResult {
+  const visits = Math.max(0, input.visits);
+  const hours = Math.max(0, input.hoursPerVisit) * visits;
+  const revenue = Math.round(input.priceCentsPerHour * hours);
+  const wage = Math.round(input.wageCentsPerHour * hours);
+  const material = Math.round((input.materialCentsPerHour + input.wearCentsPerHour) * hours);
+  const travel = Math.round(input.travelCentsPerVisit * visits);
+  const cost = wage + material + travel;
+  const profit = revenue - cost;
+  return {
+    hours,
+    revenueCents: revenue,
+    wageCents: wage,
+    materialCents: material,
+    travelCents: travel,
+    costCents: cost,
+    profitCents: profit,
+    profitCentsPerHour: hours ? Math.round(profit / hours) : 0,
+    profitCentsPerVisit: visits ? Math.round(profit / visits) : 0,
+    marginPercent: revenue ? Math.round((profit / revenue) * 1000) / 10 : 0,
+  };
+}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addDays, brand, calculateOffer, defaultCalcSettings, parseEuro, decimalHours, hoursCsv, monthRange, monthlyHours, logoSvg, berlinDate, buildInvoiceDrafts, checklistTitle, clockErrorKey, clockErrors, isNetworkError, compareSiteHours, expandSeries, isoWeekday, mondayOf, siteFromRow, texts, visitFromRow, workedMinutes } from "./index";
+import { addDays, brand, calculateOffer, calculateYield, marketRates, minimumRates, defaultCalcSettings, parseEuro, decimalHours, hoursCsv, monthRange, monthlyHours, logoSvg, berlinDate, buildInvoiceDrafts, checklistTitle, clockErrorKey, clockErrors, isNetworkError, compareSiteHours, expandSeries, isoWeekday, mondayOf, siteFromRow, texts, visitFromRow, workedMinutes } from "./index";
 import type { Site } from "./types";
 
 describe("Einsatzplanung", () => {
@@ -198,5 +198,27 @@ describe("Kalkulation", () => {
     expect(parseEuro("")).toBeNull();
     expect(parseEuro("abc")).toBeNull();
     expect(parseEuro("-3")).toBeNull();
+  });
+  it("rechnet die Rendite aus Richtpreis und Kosten", () => {
+    const base = { priceCentsPerHour: 3500, wageCentsPerHour: 1540, materialCentsPerHour: 100, wearCentsPerHour: 100, travelCentsPerVisit: 0, hoursPerVisit: 1, visits: 1 };
+    const r = calculateYield(base);
+    expect(r.revenueCents).toBe(3500);
+    expect(r.costCents).toBe(1740);
+    expect(r.profitCents).toBe(1760);
+    expect(r.profitCentsPerHour).toBe(1760);
+
+    const month = calculateYield({ ...base, hoursPerVisit: 2, visits: 20, travelCentsPerVisit: 500 });
+    expect(month.hours).toBe(40);
+    expect(month.travelCents).toBe(10000);
+    expect(month.profitCents).toBe(1760 * 40 - 10000);
+    expect(month.profitCentsPerVisit).toBe(month.profitCents / 20);
+    expect(calculateYield({ ...base, visits: 0 }).profitCentsPerHour).toBe(0);
+  });
+
+  it("Marktwerte liegen nie unter dem Mindestsatz", () => {
+    for (const m of marketRates) {
+      expect(m.fromCents).toBeGreaterThanOrEqual(minimumRates[m.kind]);
+      expect(m.toCents).toBeGreaterThanOrEqual(m.fromCents);
+    }
   });
 });

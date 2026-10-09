@@ -1,7 +1,7 @@
 "use server";
 
 import { refresh } from "next/cache";
-import { parseEuro, priceGuideUnits, type PriceGuideUnit } from "@gp/shared";
+import { formatEuro, marketRates, parseEuro, priceGuideUnits, type PriceGuideUnit } from "@gp/shared";
 import { requireMe } from "@/lib/supabase";
 import type { FormState } from "@/components/action-form";
 
@@ -50,5 +50,24 @@ export async function deletePriceGuide(id: string) {
   const { supabase, isOffice } = await requireMe();
   if (!isOffice) return;
   await supabase.from("price_guides").delete().eq("id", id);
+  refresh();
+}
+
+/** Ungefähre Marktwerte als eigene Richtpreise übernehmen (nur fehlende Titel). */
+export async function addMarketGuides() {
+  const { supabase, profile, isOffice } = await requireMe();
+  if (!isOffice) return;
+  const { data: existing } = await supabase.from("price_guides").select("title");
+  const taken = new Set((existing ?? []).map((g) => g.title));
+  const rows = marketRates
+    .filter((m) => !taken.has(m.title))
+    .map((m) => ({
+      company_id: profile.company_id,
+      title: m.title,
+      unit: "stunde" as const,
+      price_cents: m.fromCents,
+      note: [m.m2PerHour ? `ca. ${m.m2PerHour} m²/Std.` : null, `marktüblich ${formatEuro(m.fromCents)} bis ${formatEuro(m.toCents)}`].filter(Boolean).join(" · "),
+    }));
+  if (rows.length) await supabase.from("price_guides").insert(rows);
   refresh();
 }
