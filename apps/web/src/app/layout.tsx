@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { Bricolage_Grotesque, Figtree } from "next/font/google";
 import { brand } from "@gp/shared";
 import { Nav } from "@/components/nav";
+import { themeCss, themeScript } from "@/lib/theme";
 import "./globals.css";
 
 const display = Bricolage_Grotesque({ variable: "--font-display", subsets: ["latin"] });
@@ -13,13 +14,14 @@ export const metadata: Metadata = {
   description: "Planung, Zeiterfassung und Abrechnung für Gebäudereinigungen",
 };
 
-const brandVars = Object.fromEntries(
-  Object.entries(brand.colors).map(([key, value]) => [`--gp-${key}`, value]),
-) as React.CSSProperties;
-
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="de" className={`${display.variable} ${body.variable} h-full antialiased`} style={brandVars}>
+    // data-theme setzt das Skript vor React; daher die Warnung beim Abgleich unterdrücken.
+    <html lang="de" className={`${display.variable} ${body.variable} h-full antialiased`} suppressHydrationWarning>
+      <head>
+        <style dangerouslySetInnerHTML={{ __html: themeCss }} />
+        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+      </head>
       <body className="min-h-full flex flex-col md:flex-row font-sans">
         {/* Die Navigation hängt von der Adresse ab (dynamische Seiten wie /objekte/123). */}
         <Suspense fallback={null}>

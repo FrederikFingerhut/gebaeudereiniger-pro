@@ -7,10 +7,11 @@ import { requireMe } from "@/lib/supabase";
 import { deleteOffer } from "../actions";
 import { OfferDocument } from "./document";
 import { PrintButton } from "./print-button";
+import { Skeleton } from "@/components/skeleton";
 
 export default function OfferPage({ params }: PageProps<"/angebote/[id]">) {
   return (
-    <Suspense fallback={<p className="text-muted">Lädt …</p>}>
+    <Suspense fallback={<Skeleton />}>
       <Offer params={params} />
     </Suspense>
   );

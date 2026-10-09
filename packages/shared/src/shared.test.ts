@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addDays, brand, lexofficeInvoice, nextOfferNumber, offerTotals, parseOfferLines, calculateOffer, calculateYield, marketRates, minimumRates, defaultCalcSettings, parseEuro, decimalHours, hoursCsv, monthRange, monthlyHours, logoSvg, berlinDate, buildInvoiceDrafts, checklistTitle, clockErrorKey, clockErrors, isNetworkError, compareSiteHours, expandSeries, isoWeekday, mondayOf, siteFromRow, texts, visitFromRow, workedMinutes } from "./index";
+import { addDays, brand, inspectionScore, parseInspectionItems, scoreTone, pushConfig, vapidKeyBytes, notificationText, weekdayList, entryMinutes, siteProfit, lexofficeInvoice, nextOfferNumber, offerTotals, parseOfferLines, calculateOffer, calculateYield, marketRates, minimumRates, defaultCalcSettings, parseEuro, decimalHours, hoursCsv, monthRange, monthlyHours, logoSvg, berlinDate, buildInvoiceDrafts, checklistTitle, clockErrorKey, clockErrors, isNetworkError, compareSiteHours, expandSeries, isoWeekday, mondayOf, siteFromRow, texts, visitFromRow, workedMinutes } from "./index";
 import type { Site } from "./types";
 
 describe("Einsatzplanung", () => {
@@ -259,5 +259,86 @@ describe("Lexoffice", () => {
     expect(inv.shippingConditions.shippingDate.startsWith("2026-02-01")).toBe(true);
     expect(inv.shippingConditions.shippingEndDate.startsWith("2026-02-28")).toBe(true);
     expect(inv.taxConditions).toEqual({ taxType: "net" });
+  });
+});
+
+describe("Gewinn pro Objekt", () => {
+  const s = { wageCents: 1500, ancillaryPercent: 80, materialPercent: 5, overheadPercent: 12, profitPercent: 8 };
+  const base = { siteId: "o1", siteName: "Büro", billingMode: "pauschale" as const, priceCents: 100000, doneVisits: 20, plannedMinutes: 1200, workedMinutes: 0 };
+
+  it("rechnet mit gestempelter Zeit", () => {
+    const r = siteProfit({ ...base, workedMinutes: 1500 }, s); // 25 Std.
+    expect(r.estimated).toBe(false);
+    expect(r.hours).toBe(25);
+    expect(r.costCents).toBe(Math.round(1500 * 1.8 * 1.17 * 25)); // 78.975 €
+    expect(r.profitCents).toBe(100000 - r.costCents);
+    expect(r.rating).toBe("gut");
+    expect(r.revenueCentsPerHour).toBe(4000);
+  });
+
+  it("nimmt Planzeit, wenn nicht gestempelt wurde", () => {
+    const r = siteProfit(base, s);
+    expect(r.estimated).toBe(true);
+    expect(r.hours).toBe(20);
+  });
+
+  it("erkennt Verlust und knappe Objekte", () => {
+    expect(siteProfit({ ...base, workedMinutes: 2400 }, s).rating).toBe("verlust");
+    expect(siteProfit({ ...base, workedMinutes: 1800 }, s).rating).toBe("knapp");
+  });
+
+  it("rechnet Einsatz-Preise mit erledigten Einsätzen", () => {
+    const r = siteProfit({ ...base, billingMode: "pro_einsatz", priceCents: 4500, doneVisits: 4, workedMinutes: 240 }, s);
+    expect(r.revenueCents).toBe(18000);
+  });
+
+  it("zählt Minuten nur bei abgeschlossenen Einträgen", () => {
+    expect(entryMinutes("2026-10-01T06:00:00Z", "2026-10-01T07:30:00Z")).toBe(90);
+    expect(entryMinutes("2026-10-01T06:00:00Z", null)).toBe(0);
+  });
+});
+
+describe("Benachrichtigungen", () => {
+  it("schreibt Texte in der Sprache des Empfängers", () => {
+    const de = notificationText("de", "visit_new", { site: "Praxis", date: "2026-10-12", time: "06:00" });
+    expect(de.title).toBe("Neuer Einsatz");
+    expect(de.body).toContain("Praxis");
+    expect(de.body).toContain("12.10.");
+    expect(de.body).toContain("06:00");
+    const uk = notificationText("uk", "visit_new", { site: "Praxis", date: "2026-10-12", time: "06:00" });
+    expect(uk.title).toBe("Нова робота");
+  });
+
+  it("nennt Wochentage und Zeiträume", () => {
+    expect(weekdayList("de", [1, 3, 5])).toMatch(/^Mo.*Mi.*Fr/);
+    const a = notificationText("de", "absence_ok", { kind: "urlaub", from: "2026-10-12", to: "2026-10-16" });
+    expect(a.body).toMatch(/^Urlaub: .*12\.10\..*16\.10\./);
+  });
+
+  it("kommt mit unbekannter Art klar", () => {
+    expect(notificationText("de", "neu", {}).title).toBe("neu");
+  });
+});
+
+describe("Web Push", () => {
+  it("liest den öffentlichen Schlüssel (65 Bytes, unkomprimierter Punkt)", () => {
+    const bytes = vapidKeyBytes(pushConfig.publicKey);
+    expect(bytes.length).toBe(65);
+    expect(bytes[0]).toBe(4);
+  });
+});
+
+describe("Qualitätskontrolle", () => {
+  it("rechnet die Durchschnittsnote", () => {
+    const items = parseInspectionItems([{ title: "Böden", grade: 1 }, { title: "Sanitär", grade: 3 }, { title: "Glas", grade: 2 }]);
+    expect(inspectionScore(items)).toBe(2);
+    expect(scoreTone(2)).toBe("ok");
+    expect(scoreTone(3.5)).toBe("bad");
+    expect(inspectionScore([])).toBeNull();
+  });
+
+  it("verwirft ungültige Noten", () => {
+    expect(parseInspectionItems([{ title: "x", grade: 7 }, { title: "", grade: 2 }, { title: "Müll", grade: "4", note: " voll " }]))
+      .toEqual([{ title: "Müll", grade: 4, note: "voll" }]);
   });
 });

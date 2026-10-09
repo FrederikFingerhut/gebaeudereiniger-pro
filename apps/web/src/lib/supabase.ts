@@ -50,5 +50,20 @@ export async function requireMe(): Promise<Me & { supabase: Awaited<ReturnType<t
   const { data: profile } = await supabase.from("profiles").select("*").eq("id", userId).maybeSingle();
   if (!profile) redirect("/firma-anlegen");
   const p = profile as ProfileRow;
+  // Kunden haben nur das Kundenportal.
+  if (p.role === "kunde") redirect("/portal");
   return { supabase, userId, profile: p, isOffice: p.role === "buero" || p.role === "chef" };
+}
+
+/** Angemeldeter Kunde (Rolle "kunde") für das Kundenportal; alle anderen gehen ins Büro-Web. */
+export async function requireCustomer() {
+  const supabase = await db();
+  const { data } = await supabase.auth.getClaims();
+  const userId = data?.claims?.sub;
+  if (!userId) redirect("/anmelden");
+  const { data: profile } = await supabase.from("profiles").select("*").eq("id", userId).maybeSingle();
+  if (!profile) redirect("/anmelden");
+  const p = profile as ProfileRow;
+  if (p.role !== "kunde" || !p.customer_id) redirect("/");
+  return { supabase, userId, profile: p, customerId: p.customer_id };
 }

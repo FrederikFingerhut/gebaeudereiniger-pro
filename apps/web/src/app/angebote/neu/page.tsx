@@ -3,12 +3,13 @@ import { addDays, berlinDate } from "@gp/shared";
 import { Card, PageTitle } from "@/components/ui";
 import { requireMe } from "@/lib/supabase";
 import { OfferForm } from "./offer-form";
+import { Skeleton } from "@/components/skeleton";
 
 export default function NewOfferPage({ searchParams }: PageProps<"/angebote/neu">) {
   return (
     <>
       <PageTitle note="Positionen prüfen, Empfänger wählen, speichern. Danach kannst du das Angebot drucken oder als PDF speichern.">Neues Angebot</PageTitle>
-      <Suspense fallback={<p className="text-muted">Lädt …</p>}>
+      <Suspense fallback={<Skeleton />}>
         <NewOffer searchParams={searchParams} />
       </Suspense>
     </>

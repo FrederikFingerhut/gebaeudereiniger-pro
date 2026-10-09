@@ -8,6 +8,7 @@ create table auth.users (id uuid primary key);
 create function auth.uid() returns uuid language sql stable
   as $$ select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
 do $$ begin create role authenticated; exception when duplicate_object then null; end $$;
+do $$ begin create role anon; exception when duplicate_object then null; end $$;
 grant usage on schema auth to authenticated;
 
 -- Speicher (Storage) in der Form, wie Supabase ihn anlegt; RLS ist dort schon an.

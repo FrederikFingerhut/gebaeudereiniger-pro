@@ -3,11 +3,12 @@ import { notFound } from "next/navigation";
 import QRCode from "qrcode";
 import { brand } from "@gp/shared";
 import { requireMe } from "@/lib/supabase";
+import { Skeleton } from "@/components/skeleton";
 
 // Druckseite: QR-Code zum Aufhängen im Objekt. Mitarbeiter scannen ihn beim Einstempeln.
 export default function QrPage({ params }: PageProps<"/objekte/[id]/qr">) {
   return (
-    <Suspense fallback={<p className="text-muted">Lädt …</p>}>
+    <Suspense fallback={<Skeleton />}>
       <Qr params={params} />
     </Suspense>
   );

@@ -5,19 +5,24 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { brand } from "@gp/shared";
 import { signOut } from "@/app/auth-actions";
+import { Bell } from "./bell";
+import { Search } from "./search";
+import { ThemeToggle } from "./theme-toggle";
 
 const items = [
   { href: "/", label: "Übersicht" },
   { href: "/planung", label: "Einsatzplan" },
   { href: "/objekte", label: "Objekte" },
+  { href: "/qualitaet", label: "Qualität" },
   { href: "/mitarbeiter", label: "Mitarbeiter" },
   { href: "/stunden", label: "Stunden" },
   { href: "/rechnungen", label: "Rechnungen" },
+  { href: "/auswertung", label: "Gewinn" },
   { href: "/kalkulation", label: "Kalkulation" },
   { href: "/angebote", label: "Angebote" },
 ];
 
-const withoutNav = ["/anmelden", "/registrieren", "/firma-anlegen", "/passwort-vergessen", "/passwort-neu"];
+const withoutNav = ["/anmelden", "/registrieren", "/firma-anlegen", "/passwort-vergessen", "/passwort-neu", "/portal"];
 
 export function Nav() {
   const path = usePathname();
@@ -31,11 +36,16 @@ export function Nav() {
           <Image src="/logo.png" alt="" width={36} height={36} className="rounded-lg shrink-0" priority />
           <span>{brand.name}</span>
         </div>
-        <form action={signOut} className="md:hidden shrink-0">
-          <button type="submit" className="rounded-lg px-3 py-2 text-sm font-semibold whitespace-nowrap hover:bg-white/10">
-            Abmelden
-          </button>
-        </form>
+        <div className="flex items-center gap-0.5 shrink-0">
+          <Search pages={items} />
+          <ThemeToggle />
+          <Bell />
+          <form action={signOut} className="md:hidden">
+            <button type="submit" className="rounded-lg px-3 py-2 text-sm font-semibold whitespace-nowrap hover:bg-white/10">
+              Abmelden
+            </button>
+          </form>
+        </div>
       </div>
       <ul className="flex md:flex-col gap-1 md:flex-1 overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0 pb-1">
         {items.map((item) => {

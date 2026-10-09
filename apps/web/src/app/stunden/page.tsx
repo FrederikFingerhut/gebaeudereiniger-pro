@@ -4,12 +4,13 @@ import { Card, PageTitle, Pill } from "@/components/ui";
 import { hours } from "@/lib/format";
 import { loadMonthHours, periodFrom } from "@/lib/hours";
 import { requireMe } from "@/lib/supabase";
+import { Skeleton } from "@/components/skeleton";
 
 export default function HoursPage({ searchParams }: PageProps<"/stunden">) {
   return (
     <>
       <PageTitle note="Geplante Zeit aus dem Einsatzplan neben der gestempelten Zeit. Die Liste lässt sich fürs Lohnbüro herunterladen.">Stunden</PageTitle>
-      <Suspense fallback={<p className="text-muted">Lädt …</p>}>
+      <Suspense fallback={<Skeleton />}>
         <Hours searchParams={searchParams} />
       </Suspense>
     </>

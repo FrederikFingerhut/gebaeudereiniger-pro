@@ -7,12 +7,13 @@ import { addPriceGuide, deletePriceGuide } from "./actions";
 import { Calculator } from "./calculator";
 import { MarketCard } from "./market";
 import { YieldCalculator } from "./yield";
+import { Skeleton } from "@/components/skeleton";
 
 export default function CalculationPage() {
   return (
     <>
       <PageTitle note="Für Angebote: Zeit und Preis aus Fläche und Leistungswert berechnen. Daneben deine Richtpreise zum Vergleichen.">Kalkulation</PageTitle>
-      <Suspense fallback={<p className="text-muted">Lädt …</p>}>
+      <Suspense fallback={<Skeleton />}>
         <Calculation />
       </Suspense>
     </>

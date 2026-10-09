@@ -6,6 +6,7 @@ import { requireMe } from "@/lib/supabase";
 import { loadDrafts } from "@/lib/invoices";
 import { saveLexofficeKey } from "./actions";
 import { InvoiceList } from "./invoice-list";
+import { Skeleton } from "@/components/skeleton";
 
 export default function InvoicesPage({ searchParams }: PageProps<"/rechnungen">) {
   return (
@@ -13,7 +14,7 @@ export default function InvoicesPage({ searchParams }: PageProps<"/rechnungen">)
       <PageTitle note="Die App berechnet die Entwürfe aus Pauschalen, erledigten Einsätzen und Sonderleistungen. Schreiben, versenden und mahnen macht weiter Lexoffice.">
         Rechnungen
       </PageTitle>
-      <Suspense fallback={<p className="text-muted">Lädt …</p>}>
+      <Suspense fallback={<Skeleton />}>
         <Invoices searchParams={searchParams} />
       </Suspense>
     </>

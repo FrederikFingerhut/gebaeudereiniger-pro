@@ -5,12 +5,13 @@ import { ActionForm, Field, inputClass } from "@/components/action-form";
 import { Card, PageTitle } from "@/components/ui";
 import { requireMe } from "@/lib/supabase";
 import { saveLetterhead } from "./actions";
+import { Skeleton } from "@/components/skeleton";
 
 export default function OffersPage() {
   return (
     <>
       <PageTitle note="Angebote mit deinem Logo und Briefkopf, zum Drucken oder als PDF zum Verschicken.">Angebote</PageTitle>
-      <Suspense fallback={<p className="text-muted">Lädt …</p>}>
+      <Suspense fallback={<Skeleton />}>
         <Offers />
       </Suspense>
     </>
