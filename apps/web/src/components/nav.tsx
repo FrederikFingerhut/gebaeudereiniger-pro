@@ -11,6 +11,7 @@ const items = [
   { href: "/", label: "Übersicht" },
   { href: "/planung", label: "Einsatzplan" },
   { href: "/objekte", label: "Objekte" },
+  { href: "/qualitaet", label: "Qualität" },
   { href: "/mitarbeiter", label: "Mitarbeiter" },
   { href: "/stunden", label: "Stunden" },
   { href: "/rechnungen", label: "Rechnungen" },
@@ -19,7 +20,7 @@ const items = [
   { href: "/angebote", label: "Angebote" },
 ];
 
-const withoutNav = ["/anmelden", "/registrieren", "/firma-anlegen", "/passwort-vergessen", "/passwort-neu"];
+const withoutNav = ["/anmelden", "/registrieren", "/firma-anlegen", "/passwort-vergessen", "/passwort-neu", "/portal"];
 
 export function Nav() {
   const path = usePathname();
