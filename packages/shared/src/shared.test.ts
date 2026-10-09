@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addDays, brand, lexofficeInvoice, nextOfferNumber, offerTotals, parseOfferLines, calculateOffer, calculateYield, marketRates, minimumRates, defaultCalcSettings, parseEuro, decimalHours, hoursCsv, monthRange, monthlyHours, logoSvg, berlinDate, buildInvoiceDrafts, checklistTitle, clockErrorKey, clockErrors, isNetworkError, compareSiteHours, expandSeries, isoWeekday, mondayOf, siteFromRow, texts, visitFromRow, workedMinutes } from "./index";
+import { addDays, brand, entryMinutes, siteProfit, lexofficeInvoice, nextOfferNumber, offerTotals, parseOfferLines, calculateOffer, calculateYield, marketRates, minimumRates, defaultCalcSettings, parseEuro, decimalHours, hoursCsv, monthRange, monthlyHours, logoSvg, berlinDate, buildInvoiceDrafts, checklistTitle, clockErrorKey, clockErrors, isNetworkError, compareSiteHours, expandSeries, isoWeekday, mondayOf, siteFromRow, texts, visitFromRow, workedMinutes } from "./index";
 import type { Site } from "./types";
 
 describe("Einsatzplanung", () => {
@@ -259,5 +259,41 @@ describe("Lexoffice", () => {
     expect(inv.shippingConditions.shippingDate.startsWith("2026-02-01")).toBe(true);
     expect(inv.shippingConditions.shippingEndDate.startsWith("2026-02-28")).toBe(true);
     expect(inv.taxConditions).toEqual({ taxType: "net" });
+  });
+});
+
+describe("Gewinn pro Objekt", () => {
+  const s = { wageCents: 1500, ancillaryPercent: 80, materialPercent: 5, overheadPercent: 12, profitPercent: 8 };
+  const base = { siteId: "o1", siteName: "Büro", billingMode: "pauschale" as const, priceCents: 100000, doneVisits: 20, plannedMinutes: 1200, workedMinutes: 0 };
+
+  it("rechnet mit gestempelter Zeit", () => {
+    const r = siteProfit({ ...base, workedMinutes: 1500 }, s); // 25 Std.
+    expect(r.estimated).toBe(false);
+    expect(r.hours).toBe(25);
+    expect(r.costCents).toBe(Math.round(1500 * 1.8 * 1.17 * 25)); // 78.975 €
+    expect(r.profitCents).toBe(100000 - r.costCents);
+    expect(r.rating).toBe("gut");
+    expect(r.revenueCentsPerHour).toBe(4000);
+  });
+
+  it("nimmt Planzeit, wenn nicht gestempelt wurde", () => {
+    const r = siteProfit(base, s);
+    expect(r.estimated).toBe(true);
+    expect(r.hours).toBe(20);
+  });
+
+  it("erkennt Verlust und knappe Objekte", () => {
+    expect(siteProfit({ ...base, workedMinutes: 2400 }, s).rating).toBe("verlust");
+    expect(siteProfit({ ...base, workedMinutes: 1800 }, s).rating).toBe("knapp");
+  });
+
+  it("rechnet Einsatz-Preise mit erledigten Einsätzen", () => {
+    const r = siteProfit({ ...base, billingMode: "pro_einsatz", priceCents: 4500, doneVisits: 4, workedMinutes: 240 }, s);
+    expect(r.revenueCents).toBe(18000);
+  });
+
+  it("zählt Minuten nur bei abgeschlossenen Einträgen", () => {
+    expect(entryMinutes("2026-10-01T06:00:00Z", "2026-10-01T07:30:00Z")).toBe(90);
+    expect(entryMinutes("2026-10-01T06:00:00Z", null)).toBe(0);
   });
 });

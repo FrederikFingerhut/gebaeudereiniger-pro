@@ -13,6 +13,7 @@ const items = [
   { href: "/mitarbeiter", label: "Mitarbeiter" },
   { href: "/stunden", label: "Stunden" },
   { href: "/rechnungen", label: "Rechnungen" },
+  { href: "/auswertung", label: "Gewinn" },
   { href: "/kalkulation", label: "Kalkulation" },
   { href: "/angebote", label: "Angebote" },
 ];

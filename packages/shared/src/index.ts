@@ -9,3 +9,4 @@ export * from "./logo";
 export * from "./hours";
 export * from "./calculation";
 export * from "./offers";
+export * from "./profit";

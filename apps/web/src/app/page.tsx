@@ -4,12 +4,13 @@ import { Card, PageTitle, Pill, StatusPill } from "@/components/ui";
 import { requireMe } from "@/lib/supabase";
 import { clockTime, hours, one } from "@/lib/format";
 import { markReportDone } from "./actions";
+import { Skeleton } from "@/components/skeleton";
 
 export default function OverviewPage() {
   return (
     <>
       <PageTitle>Übersicht</PageTitle>
-      <Suspense fallback={<p className="text-muted">Lädt …</p>}>
+      <Suspense fallback={<Skeleton />}>
         <Overview />
       </Suspense>
     </>

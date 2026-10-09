@@ -4,12 +4,13 @@ import { formatEuro, siteFromRow, type SiteRow } from "@gp/shared";
 import { Card, PageTitle, Pill } from "@/components/ui";
 import { requireMe } from "@/lib/supabase";
 import { emptySite, SiteForm } from "./site-form";
+import { Skeleton } from "@/components/skeleton";
 
 export default function SitesPage() {
   return (
     <>
       <PageTitle>Objekte</PageTitle>
-      <Suspense fallback={<p className="text-muted">Lädt …</p>}>
+      <Suspense fallback={<Skeleton />}>
         <Sites />
       </Suspense>
     </>

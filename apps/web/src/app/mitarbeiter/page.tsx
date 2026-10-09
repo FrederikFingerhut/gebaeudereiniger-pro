@@ -5,6 +5,7 @@ import { ActionForm, Field, inputClass } from "@/components/action-form";
 import { requireMe } from "@/lib/supabase";
 import { hours, one } from "@/lib/format";
 import { createEmployee, decideAbsence, setActive, setPassword } from "./actions";
+import { Skeleton } from "@/components/skeleton";
 
 const roleLabel = { mitarbeiter: "Mitarbeiter", objektleiter: "Objektleiter", buero: "Büro", chef: "Chef" };
 
@@ -12,7 +13,7 @@ export default function EmployeesPage() {
   return (
     <>
       <PageTitle>Mitarbeiter</PageTitle>
-      <Suspense fallback={<p className="text-muted">Lädt …</p>}>
+      <Suspense fallback={<Skeleton />}>
         <Employees />
       </Suspense>
     </>

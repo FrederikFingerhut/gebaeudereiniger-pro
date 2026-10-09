@@ -5,12 +5,13 @@ import { siteFromRow, type SiteRow } from "@gp/shared";
 import { Card, PageTitle } from "@/components/ui";
 import { requireMe } from "@/lib/supabase";
 import { SiteForm } from "../site-form";
+import { Skeleton } from "@/components/skeleton";
 
 export default function SitePage({ params }: PageProps<"/objekte/[id]">) {
   return (
     <>
       <PageTitle>Objekt bearbeiten</PageTitle>
-      <Suspense fallback={<p className="text-muted">Lädt …</p>}>
+      <Suspense fallback={<Skeleton />}>
         <EditSite params={params} />
       </Suspense>
     </>
