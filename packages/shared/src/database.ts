@@ -24,6 +24,8 @@ export interface ProfileRow {
   language: Language;
   phone: string | null;
   active: boolean;
+  /** Nur bei Kunden-Zugängen (Rolle "kunde"). */
+  customer_id?: string | null;
 }
 
 export interface SiteRow {

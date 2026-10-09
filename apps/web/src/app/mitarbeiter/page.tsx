@@ -7,7 +7,7 @@ import { hours, one } from "@/lib/format";
 import { createEmployee, decideAbsence, setActive, setPassword } from "./actions";
 import { Skeleton } from "@/components/skeleton";
 
-const roleLabel = { mitarbeiter: "Mitarbeiter", objektleiter: "Objektleiter", buero: "Büro", chef: "Chef" };
+const roleLabel = { mitarbeiter: "Mitarbeiter", objektleiter: "Objektleiter", buero: "Büro", chef: "Chef", kunde: "Kunde" };
 
 export default function EmployeesPage() {
   return (
@@ -25,7 +25,7 @@ async function Employees() {
   const today = berlinDate();
   const monthStart = today.slice(0, 8) + "01";
   const [{ data: people }, { data: entries }, { data: absences }] = await Promise.all([
-    supabase.from("profiles").select("*").order("full_name"),
+    supabase.from("profiles").select("*").neq("role", "kunde").order("full_name"),
     supabase.from("time_entries").select("employee_id, clock_in_at, clock_out_at").gte("clock_in_at", monthStart),
     supabase.from("absences").select("id, kind, date_from, date_to, approved, profiles(full_name)").gte("date_to", today).order("date_from"),
   ]);

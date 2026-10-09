@@ -1,7 +1,7 @@
 // Gemeinsame Datentypen für Handy-App, Büro-Web und Datenbank.
 // Spiegeln die Tabellen in supabase/migrations wider.
 
-export type Role = "mitarbeiter" | "objektleiter" | "buero" | "chef";
+export type Role = "mitarbeiter" | "objektleiter" | "buero" | "chef" | "kunde";
 export type Language = "de" | "en" | "ru" | "uk";
 export type VisitStatus = "geplant" | "laeuft" | "erledigt" | "ausgefallen";
 export type ReportKind = "problem" | "material" | "reklamation";

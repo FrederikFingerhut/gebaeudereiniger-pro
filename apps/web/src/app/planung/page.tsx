@@ -33,7 +33,7 @@ async function Planning({ searchParams }: { searchParams: PageProps<"/planung">[
 
   const [{ data: sites }, { data: people }, { data: visits }, { data: series }] = await Promise.all([
     supabase.from("sites").select("id, name, planned_minutes").eq("active", true).order("name"),
-    supabase.from("profiles").select("*").eq("active", true).order("full_name"),
+    supabase.from("profiles").select("*").eq("active", true).neq("role", "kunde").order("full_name"),
     supabase.from("visits").select("id, site_id, employee_id, date, start_time, status").gte("date", week).lte("date", days[6]).order("start_time"),
     supabase.from("visit_series").select("id, site_id, employee_id, weekdays, start_time, valid_from, valid_until").or(`valid_until.is.null,valid_until.gte.${berlinDate()}`),
   ]);

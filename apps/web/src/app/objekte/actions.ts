@@ -1,7 +1,9 @@
 "use server";
 
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { requireMe } from "@/lib/supabase";
+import { refresh } from "next/cache";
+import { adminDb, requireMe } from "@/lib/supabase";
 import type { FormState } from "@/components/action-form";
 
 const text = (data: FormData, key: string) => String(data.get(key) ?? "").trim();
@@ -91,4 +93,37 @@ export async function saveSite(siteId: string | null, _: FormState, data: FormDa
 
   if (!siteId) redirect(`/objekte/${site.id}`);
   return { ok: position === null ? "Gespeichert. Die Adresse wurde nicht gefunden: Stempeln geht nur per QR-Code, oder Koordinaten eintragen." : "Gespeichert." };
+}
+
+/** Zugang fürs Kundenportal anlegen: der Kunde sieht nur seine Objekte, Einsätze und Prüfberichte. */
+export async function createCustomerLogin(_: FormState, data: FormData): Promise<FormState> {
+  const { supabase, profile, isOffice } = await requireMe();
+  if (!isOffice) return { error: "Nur Büro und Chef können Kundenzugänge anlegen." };
+  const customerId = text(data, "customer_id");
+  const fullName = text(data, "name");
+  const email = text(data, "email").toLowerCase();
+  const password = String(data.get("password") ?? "");
+  if (!customerId || !fullName || !email) return { error: "Bitte Kunde, Name und E-Mail angeben." };
+  if (password.length < 8) return { error: "Das Start-Passwort braucht mindestens 8 Zeichen." };
+  const { data: customer } = await supabase.from("customers").select("id").eq("id", customerId).maybeSingle();
+  if (!customer) return { error: "Kunde nicht gefunden." };
+
+  let admin;
+  try {
+    admin = adminDb();
+  } catch {
+    return { error: "Auf dem Server fehlt noch der geheime Datenbank-Schlüssel." };
+  }
+  const { data: created, error } = await admin.auth.admin.createUser({ email, password, email_confirm: true, user_metadata: { full_name: fullName } });
+  if (error) return { error: error.message.includes("already") ? "Diese E-Mail hat schon einen Zugang." : `Zugang konnte nicht angelegt werden: ${error.message}` };
+  const { error: profileError } = await admin
+    .from("profiles")
+    .insert({ id: created.user.id, company_id: profile.company_id, full_name: fullName, role: "kunde", customer_id: customerId, language: "de" });
+  if (profileError) {
+    await admin.auth.admin.deleteUser(created.user.id);
+    return { error: "Kundenzugang konnte nicht angelegt werden." };
+  }
+  refresh();
+  const host = (await headers()).get("host");
+  return { ok: `Zugang für ${fullName} angelegt. Anmeldung unter ${host ? `https://${host}/anmelden` : "der Adresse des Büro-Webs"} mit ${email} und dem Start-Passwort.` };
 }

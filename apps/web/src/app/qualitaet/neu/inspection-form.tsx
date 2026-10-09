@@ -4,20 +4,10 @@ import { useActionState, useState } from "react";
 import { useRouter } from "next/navigation";
 import { gradeLabels, inspectionScore } from "@gp/shared";
 import { Field, inputClass } from "@/components/action-form";
+import { shrinkPhoto } from "@/lib/photo";
 import { saveInspection } from "../actions";
 
 type Item = { title: string; grade: number; note: string };
-
-/** Verkleinert ein Foto im Browser auf höchstens 1600 Pixel (JPEG), damit das Hochladen schnell geht. */
-async function shrink(file: File): Promise<Blob> {
-  const bitmap = await createImageBitmap(file);
-  const scale = Math.min(1, 1600 / Math.max(bitmap.width, bitmap.height));
-  const canvas = document.createElement("canvas");
-  canvas.width = Math.round(bitmap.width * scale);
-  canvas.height = Math.round(bitmap.height * scale);
-  canvas.getContext("2d")!.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-  return new Promise((resolve, reject) => canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("Foto"))), "image/jpeg", 0.8));
-}
 
 export function InspectionForm({ sites, siteId, areas, today }: { sites: { id: string; name: string }[]; siteId: string; areas: string[]; today: string }) {
   const router = useRouter();
@@ -32,7 +22,7 @@ export function InspectionForm({ sites, siteId, areas, today }: { sites: { id: s
   const addPhotos = async (files: FileList | null) => {
     if (!files) return;
     const shrunk = await Promise.all([...files].slice(0, 8 - photos.length).map(async (f) => {
-      const blob = await shrink(f);
+      const blob = await shrinkPhoto(f);
       return { blob, url: URL.createObjectURL(blob) };
     }));
     setPhotos((p) => [...p, ...shrunk]);

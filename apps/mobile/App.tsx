@@ -63,10 +63,10 @@ export default function App() {
     content = <ActivityIndicator style={{ marginTop: 48 }} color={c.primary} />;
   } else if (!session) {
     content = <Login lang={lang} changeLang={changeLang} />;
-  } else if (!profile) {
+  } else if (!profile || profile.role === "kunde") {
     content = (
       <View style={styles.body}>
-        <Text style={styles.title}>{t(lang, "noProfile")}</Text>
+        <Text style={styles.title}>{t(lang, profile ? "customerAccount" : "noProfile")}</Text>
         <LogoutButton lang={lang} />
       </View>
     );
