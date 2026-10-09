@@ -21,4 +21,22 @@ export const brand = {
     warn: "#c77a12",
     bad: "#c2413b",
   },
+  // Dunkler Modus im Büro-Web: gleiche Schlüssel, dunkle Flächen, hellere Signalfarben.
+  darkColors: {
+    primary: "#1f7f93",
+    primaryLight: "#2a9ab0",
+    primaryDeep: "#0f4c5c",
+    onPrimary: "#ffffff",
+    signal: "#f2b632",
+    onSignal: "#1d1600",
+    background: "#0e171d",
+    surface: "#16222a",
+    text: "#e6edf1",
+    muted: "#9aabb7",
+    line: "#2a3a45",
+    soft: "#1f2e37",
+    ok: "#4cc282",
+    warn: "#e8a23a",
+    bad: "#ef6b64",
+  },
 } as const;

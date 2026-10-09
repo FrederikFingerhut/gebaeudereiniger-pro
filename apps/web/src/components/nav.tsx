@@ -6,6 +6,8 @@ import { usePathname } from "next/navigation";
 import { brand } from "@gp/shared";
 import { signOut } from "@/app/auth-actions";
 import { Bell } from "./bell";
+import { Search } from "./search";
+import { ThemeToggle } from "./theme-toggle";
 
 const items = [
   { href: "/", label: "Übersicht" },
@@ -34,7 +36,9 @@ export function Nav() {
           <Image src="/logo.png" alt="" width={36} height={36} className="rounded-lg shrink-0" priority />
           <span>{brand.name}</span>
         </div>
-        <div className="flex items-center gap-1 shrink-0">
+        <div className="flex items-center gap-0.5 shrink-0">
+          <Search pages={items} />
+          <ThemeToggle />
           <Bell />
           <form action={signOut} className="md:hidden">
             <button type="submit" className="rounded-lg px-3 py-2 text-sm font-semibold whitespace-nowrap hover:bg-white/10">
