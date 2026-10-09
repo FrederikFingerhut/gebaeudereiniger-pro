@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addDays, brand, notificationText, weekdayList, entryMinutes, siteProfit, lexofficeInvoice, nextOfferNumber, offerTotals, parseOfferLines, calculateOffer, calculateYield, marketRates, minimumRates, defaultCalcSettings, parseEuro, decimalHours, hoursCsv, monthRange, monthlyHours, logoSvg, berlinDate, buildInvoiceDrafts, checklistTitle, clockErrorKey, clockErrors, isNetworkError, compareSiteHours, expandSeries, isoWeekday, mondayOf, siteFromRow, texts, visitFromRow, workedMinutes } from "./index";
+import { addDays, brand, inspectionScore, parseInspectionItems, scoreTone, pushConfig, vapidKeyBytes, notificationText, weekdayList, entryMinutes, siteProfit, lexofficeInvoice, nextOfferNumber, offerTotals, parseOfferLines, calculateOffer, calculateYield, marketRates, minimumRates, defaultCalcSettings, parseEuro, decimalHours, hoursCsv, monthRange, monthlyHours, logoSvg, berlinDate, buildInvoiceDrafts, checklistTitle, clockErrorKey, clockErrors, isNetworkError, compareSiteHours, expandSeries, isoWeekday, mondayOf, siteFromRow, texts, visitFromRow, workedMinutes } from "./index";
 import type { Site } from "./types";
 
 describe("Einsatzplanung", () => {
@@ -317,5 +317,28 @@ describe("Benachrichtigungen", () => {
 
   it("kommt mit unbekannter Art klar", () => {
     expect(notificationText("de", "neu", {}).title).toBe("neu");
+  });
+});
+
+describe("Web Push", () => {
+  it("liest den öffentlichen Schlüssel (65 Bytes, unkomprimierter Punkt)", () => {
+    const bytes = vapidKeyBytes(pushConfig.publicKey);
+    expect(bytes.length).toBe(65);
+    expect(bytes[0]).toBe(4);
+  });
+});
+
+describe("Qualitätskontrolle", () => {
+  it("rechnet die Durchschnittsnote", () => {
+    const items = parseInspectionItems([{ title: "Böden", grade: 1 }, { title: "Sanitär", grade: 3 }, { title: "Glas", grade: 2 }]);
+    expect(inspectionScore(items)).toBe(2);
+    expect(scoreTone(2)).toBe("ok");
+    expect(scoreTone(3.5)).toBe("bad");
+    expect(inspectionScore([])).toBeNull();
+  });
+
+  it("verwirft ungültige Noten", () => {
+    expect(parseInspectionItems([{ title: "x", grade: 7 }, { title: "", grade: 2 }, { title: "Müll", grade: "4", note: " voll " }]))
+      .toEqual([{ title: "Müll", grade: 4, note: "voll" }]);
   });
 });

@@ -5,6 +5,10 @@ const nextConfig: NextConfig = {
   partialPrefetching: true,
   // Gemeinsamer Code (Typen, Rechnungslogik, Texte) liegt als TypeScript im Monorepo.
   transpilePackages: ["@gp/shared"],
+  // Prüfberichte schicken verkleinerte Fotos mit (mehrere je Bericht).
+  experimental: {
+    serverActions: { bodySizeLimit: "4mb" },
+  },
   turbopack: {
     rules: {
       "*.css": {
