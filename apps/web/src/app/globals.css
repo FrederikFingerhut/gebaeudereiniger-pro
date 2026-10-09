@@ -24,3 +24,17 @@ body {
   color: var(--gp-text);
   font-variant-numeric: tabular-nums;
 }
+
+/* Angebote drucken: A4, weißer Hintergrund, ohne Seitenränder der App. */
+@media print {
+  @page {
+    size: A4;
+    margin: 16mm 18mm;
+  }
+  body {
+    background: white;
+  }
+  main {
+    padding: 0 !important;
+  }
+}

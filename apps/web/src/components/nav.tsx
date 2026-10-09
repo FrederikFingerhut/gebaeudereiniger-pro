@@ -14,6 +14,7 @@ const items = [
   { href: "/stunden", label: "Stunden" },
   { href: "/rechnungen", label: "Rechnungen" },
   { href: "/kalkulation", label: "Kalkulation" },
+  { href: "/angebote", label: "Angebote" },
 ];
 
 const withoutNav = ["/anmelden", "/registrieren", "/firma-anlegen", "/passwort-vergessen", "/passwort-neu"];

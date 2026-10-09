@@ -50,3 +50,26 @@ export async function reassignVisit(visitId: string, _: FormState, data: FormDat
   refresh();
   return { ok: "Geändert." };
 }
+
+/** Einsatz im Wochenplan verschieben: anderer Tag und/oder anderer Mitarbeiter. */
+export async function moveVisit(visitId: string, employeeId: string | null, date: string): Promise<FormState> {
+  const { supabase } = await requireMe();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return { error: "Ungültiger Tag." };
+  const { data: visit } = await supabase.from("visits").select("date, status, series_id, moved_from").eq("id", visitId).maybeSingle();
+  if (!visit) return { error: "Einsatz nicht gefunden." };
+  if (visit.status !== "geplant") return { error: "Nur geplante Einsätze lassen sich verschieben." };
+
+  const moved = date !== visit.date;
+  const { error } = await supabase
+    .from("visits")
+    .update({
+      employee_id: employeeId,
+      date,
+      // Ursprünglichen Serientag merken, damit dort kein neuer Einsatz entsteht.
+      moved_from: moved && visit.series_id ? (visit.moved_from ?? visit.date) : visit.moved_from,
+    })
+    .eq("id", visitId);
+  if (error) return { error: error.code === "23505" ? "An dem Tag ist dieses Objekt aus derselben Serie schon geplant." : "Konnte nicht verschoben werden." };
+  refresh();
+  return { ok: "Verschoben." };
+}
