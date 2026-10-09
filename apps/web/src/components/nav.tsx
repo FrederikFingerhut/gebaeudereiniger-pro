@@ -13,6 +13,7 @@ const items = [
   { href: "/mitarbeiter", label: "Mitarbeiter" },
   { href: "/stunden", label: "Stunden" },
   { href: "/rechnungen", label: "Rechnungen" },
+  { href: "/kalkulation", label: "Kalkulation" },
 ];
 
 const withoutNav = ["/anmelden", "/registrieren", "/firma-anlegen", "/passwort-vergessen", "/passwort-neu"];
