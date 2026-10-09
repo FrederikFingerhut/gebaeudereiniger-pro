@@ -8,6 +8,12 @@ export const supabaseConfig = {
   publishableKey: "sb_publishable_d2pFvyNUJMIfr-nhdpAGfA_Fitm_AEI",
 };
 
+// Öffentlicher Schlüssel für Web-Push (VAPID). Der private Teil liegt nur als
+// Geheimnis bei der Push-Funktion in Supabase.
+export const pushConfig = {
+  publicKey: "BKaQFeLcolSxYiqbrHhrSY8_dTFWJl_llhLcM1sDeGuhD_fbA-wVLTvKADgtyhVKvZDfSMWkvbEA5Zv2NV6VR9M",
+};
+
 // Zeilen, wie sie aus der Datenbank kommen (Spaltennamen mit Unterstrich).
 
 export interface ProfileRow {

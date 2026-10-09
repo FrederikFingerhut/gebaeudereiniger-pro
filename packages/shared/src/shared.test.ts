@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addDays, brand, entryMinutes, siteProfit, lexofficeInvoice, nextOfferNumber, offerTotals, parseOfferLines, calculateOffer, calculateYield, marketRates, minimumRates, defaultCalcSettings, parseEuro, decimalHours, hoursCsv, monthRange, monthlyHours, logoSvg, berlinDate, buildInvoiceDrafts, checklistTitle, clockErrorKey, clockErrors, isNetworkError, compareSiteHours, expandSeries, isoWeekday, mondayOf, siteFromRow, texts, visitFromRow, workedMinutes } from "./index";
+import { addDays, brand, notificationText, weekdayList, entryMinutes, siteProfit, lexofficeInvoice, nextOfferNumber, offerTotals, parseOfferLines, calculateOffer, calculateYield, marketRates, minimumRates, defaultCalcSettings, parseEuro, decimalHours, hoursCsv, monthRange, monthlyHours, logoSvg, berlinDate, buildInvoiceDrafts, checklistTitle, clockErrorKey, clockErrors, isNetworkError, compareSiteHours, expandSeries, isoWeekday, mondayOf, siteFromRow, texts, visitFromRow, workedMinutes } from "./index";
 import type { Site } from "./types";
 
 describe("Einsatzplanung", () => {
@@ -295,5 +295,27 @@ describe("Gewinn pro Objekt", () => {
   it("zählt Minuten nur bei abgeschlossenen Einträgen", () => {
     expect(entryMinutes("2026-10-01T06:00:00Z", "2026-10-01T07:30:00Z")).toBe(90);
     expect(entryMinutes("2026-10-01T06:00:00Z", null)).toBe(0);
+  });
+});
+
+describe("Benachrichtigungen", () => {
+  it("schreibt Texte in der Sprache des Empfängers", () => {
+    const de = notificationText("de", "visit_new", { site: "Praxis", date: "2026-10-12", time: "06:00" });
+    expect(de.title).toBe("Neuer Einsatz");
+    expect(de.body).toContain("Praxis");
+    expect(de.body).toContain("12.10.");
+    expect(de.body).toContain("06:00");
+    const uk = notificationText("uk", "visit_new", { site: "Praxis", date: "2026-10-12", time: "06:00" });
+    expect(uk.title).toBe("Нова робота");
+  });
+
+  it("nennt Wochentage und Zeiträume", () => {
+    expect(weekdayList("de", [1, 3, 5])).toMatch(/^Mo.*Mi.*Fr/);
+    const a = notificationText("de", "absence_ok", { kind: "urlaub", from: "2026-10-12", to: "2026-10-16" });
+    expect(a.body).toMatch(/^Urlaub: .*12\.10\..*16\.10\./);
+  });
+
+  it("kommt mit unbekannter Art klar", () => {
+    expect(notificationText("de", "neu", {}).title).toBe("neu");
   });
 });

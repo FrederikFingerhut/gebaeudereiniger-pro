@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Alert, AppState, Image, Platform, Pressable, RefreshControl, ScrollView, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, AppState, Image, Platform, Pressable, RefreshControl, ScrollView, Text, TextInput, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import type { Session } from "@supabase/supabase-js";
 import { brand, isNetworkError, languages, t, type Language, type ProfileRow, type TextKey } from "@gp/shared";
 import { supabase } from "./src/supabase";
-import { errorText, loadDay, loadMyReports, loadProfile, reportSick, saveLanguage, type Day, type MyReport, type MyVisit } from "./src/data";
+import { loadDay, loadMyReports, loadProfile, saveLanguage, unreadCount, type Day, type MyReport, type MyVisit } from "./src/data";
+import { Absences, Messages, PushSwitch } from "./src/Extras";
+import { registerServiceWorker } from "./src/push";
 import { applyToDay, cachedDay, enqueue, flush, loadOutbox, perform, saveDay, type Action } from "./src/outbox";
 import { VisitDetail, formatDuration } from "./src/VisitDetail";
 import { Button, DoneOverlay, FadeIn, TabBar, feel } from "./src/ui";
@@ -22,6 +24,7 @@ export default function App() {
   const [notice, setNotice] = useState<string | null>(null);
 
   useEffect(() => {
+    registerServiceWorker();
     supabase.auth.getSession().then(({ data }) => setSession(data.session));
     const { data } = supabase.auth.onAuthStateChange((_event, s) => setSession(s));
     return () => data.subscription.unsubscribe();
@@ -265,13 +268,32 @@ function useDay(profile: ProfileRow, notify: (key: TextKey) => void) {
   return { day, offline, pending, reload, act, setOffline };
 }
 
-type Tab = "today" | "reports" | "profile";
+type Tab = "today" | "reports" | "messages" | "profile";
 
 function Home({ lang, changeLang, profile, notify }: { lang: Language; changeLang: (l: Language) => void; profile: ProfileRow; notify: (key: TextKey) => void }) {
   const { day, offline, pending, reload, act } = useDay(profile, notify);
   const [tab, setTab] = useState<Tab>("today");
   const [openId, setOpenId] = useState<string | null>(null);
   const [celebrate, setCelebrate] = useState(false);
+  const [unread, setUnread] = useState(0);
+
+  // Ungelesene Nachrichten für das Zeichen am Reiter, beim Öffnen der App und jede Minute.
+  const countUnread = useCallback(() => unreadCount(profile.id).then(setUnread).catch(() => {}), [profile.id]);
+  useEffect(() => {
+    countUnread();
+    const timer = setInterval(countUnread, 60_000);
+    const sub = AppState.addEventListener("change", (state) => {
+      if (state === "active") countUnread();
+    });
+    return () => {
+      clearInterval(timer);
+      sub.remove();
+    };
+  }, [countUnread]);
+  const markedRead = useCallback(() => {
+    setUnread(0);
+    reload();
+  }, [reload]);
 
   const open = day?.visits.find((v) => v.id === openId);
 
@@ -306,6 +328,12 @@ function Home({ lang, changeLang, profile, notify }: { lang: Language; changeLan
         <Reports lang={lang} profile={profile} pending={pending} />
       </FadeIn>
     );
+  else if (tab === "messages")
+    screen = (
+      <FadeIn key="messages">
+        <Messages lang={lang} profile={profile} onRead={markedRead} />
+      </FadeIn>
+    );
   else
     screen = (
       <FadeIn key="profile">
@@ -331,6 +359,7 @@ function Home({ lang, changeLang, profile, notify }: { lang: Language; changeLan
         tabs={[
           { key: "today", label: t(lang, "tabToday"), icon: "today-outline" },
           { key: "reports", label: t(lang, "tabReports"), icon: "chatbubble-ellipses-outline" },
+          { key: "messages", label: t(lang, "notifications"), icon: "notifications-outline", badge: unread },
           { key: "profile", label: t(lang, "tabProfile"), icon: "person-circle-outline" },
         ]}
       />
@@ -474,26 +503,6 @@ function Reports({ lang, profile, pending }: { lang: Language; profile: ProfileR
 }
 
 function Profile({ lang, changeLang, profile, notify }: { lang: Language; changeLang: (l: Language) => void; profile: ProfileRow; notify: (key: TextKey) => void }) {
-  const sendSick = () =>
-    reportSick(profile)
-      .then(() => {
-        feel.success();
-        notify("sickSent");
-      })
-      .catch((e) => notify(errorText(e)));
-
-  const sick = () => {
-    // Alert mit Knöpfen gibt es im Browser nicht; dort reicht die einfache Rückfrage.
-    if (Platform.OS === "web") {
-      if (globalThis.confirm?.(t(lang, "sickQuestion"))) sendSick();
-      return;
-    }
-    Alert.alert(t(lang, "reportSick"), t(lang, "sickQuestion"), [
-      { text: t(lang, "no"), style: "cancel" },
-      { text: t(lang, "yes"), onPress: sendSick },
-    ]);
-  };
-
   return (
     <ScrollView contentContainerStyle={styles.body}>
       <View style={[styles.card, styles.buttonRow]}>
@@ -502,8 +511,10 @@ function Profile({ lang, changeLang, profile, notify }: { lang: Language; change
       </View>
       <Text style={styles.label}>{t(lang, "language")}</Text>
       <Languages lang={lang} changeLang={changeLang} />
+      <Absences lang={lang} profile={profile} notify={notify} />
+      <Text style={styles.label}>{t(lang, "notifications")}</Text>
+      <PushSwitch lang={lang} />
       <Text style={styles.label}> </Text>
-      <Button label={t(lang, "reportSick")} icon="medkit-outline" onPress={sick} />
       <LogoutButton lang={lang} />
     </ScrollView>
   );

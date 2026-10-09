@@ -183,18 +183,6 @@ export async function loadMyReports(userId: string): Promise<MyReport[]> {
   });
 }
 
-export async function reportSick(profile: ProfileRow) {
-  const today = berlinDate();
-  const { error } = await supabase.from("absences").insert({
-    company_id: profile.company_id,
-    employee_id: profile.id,
-    kind: "krank",
-    date_from: today,
-    date_to: today,
-  });
-  if (error) throw error;
-}
-
 export async function saveLanguage(profile: ProfileRow, language: ProfileRow["language"]) {
   await supabase.from("profiles").update({ language }).eq("id", profile.id);
 }
@@ -202,4 +190,73 @@ export async function saveLanguage(profile: ProfileRow, language: ProfileRow["la
 /** QR-Aufkleber enthalten den Schlüssel, ggf. am Ende eines Links. */
 export function tokenFromQr(data: string): string {
   return data.trim().split("/").filter(Boolean).pop() ?? "";
+}
+
+// Nachrichten -------------------------------------------------------------------------
+
+export interface Message {
+  id: string;
+  kind: string;
+  params: Record<string, unknown>;
+  created_at: string;
+  read_at: string | null;
+}
+
+export async function loadMessages(userId: string): Promise<Message[]> {
+  const { data, error } = await supabase
+    .from("notifications")
+    .select("id, kind, params, created_at, read_at")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false })
+    .limit(50);
+  if (error) throw error;
+  return (data ?? []) as Message[];
+}
+
+export async function unreadCount(userId: string): Promise<number> {
+  const { count } = await supabase.from("notifications").select("id", { count: "exact", head: true }).eq("user_id", userId).is("read_at", null);
+  return count ?? 0;
+}
+
+export async function markAllRead(userId: string) {
+  await supabase.from("notifications").update({ read_at: new Date().toISOString() }).eq("user_id", userId).is("read_at", null);
+}
+
+// Urlaub und Krank --------------------------------------------------------------------
+
+export interface MyAbsence {
+  id: string;
+  kind: "krank" | "urlaub";
+  date_from: string;
+  date_to: string;
+  approved: boolean | null;
+}
+
+export async function loadMyAbsences(userId: string): Promise<MyAbsence[]> {
+  const { data, error } = await supabase
+    .from("absences")
+    .select("id, kind, date_from, date_to, approved")
+    .eq("employee_id", userId)
+    .gte("date_to", addDaysIso(berlinDate(), -60))
+    .order("date_from", { ascending: false });
+  if (error) throw error;
+  return (data ?? []) as MyAbsence[];
+}
+
+export async function requestAbsence(profile: ProfileRow, kind: MyAbsence["kind"], from: string, to: string, note: string) {
+  const { error } = await supabase.from("absences").insert({
+    company_id: profile.company_id,
+    employee_id: profile.id,
+    kind,
+    date_from: from,
+    date_to: to,
+    note: note.trim() || null,
+  });
+  if (error) throw error;
+}
+
+export function addDaysIso(date: string, days: number): string {
+  const d = new Date(`${date}T12:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
 }

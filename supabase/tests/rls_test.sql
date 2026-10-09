@@ -248,3 +248,75 @@ update visits set moved_from = date, date = '2026-10-13'
 select pg_temp.expect('Verschobener Einsatz kommt nicht doppelt', ensure_visits('2026-10-12', '2026-10-18'), 0);
 select pg_temp.expect('Einsatz liegt am neuen Tag', (select count(*) from visits where series_id is not null and date = '2026-10-13'), 1);
 reset role;
+
+-- Kundenportal: Kunde sieht nur eigene Objekte, Einsätze und Prüfberichte
+grant all on all tables in schema public to authenticated;
+insert into customers (id, company_id, name) values
+  ('20000000-0000-0000-0000-000000000002', '00000000-0000-0000-0000-00000000000a', 'Autohaus');
+insert into sites (id, company_id, customer_id, name, address) values
+  ('30000000-0000-0000-0000-000000000009', '00000000-0000-0000-0000-00000000000a', '20000000-0000-0000-0000-000000000002', 'Autohaus Halle', 'Ring 1');
+insert into auth.users values ('10000000-0000-0000-0000-000000000005');
+insert into profiles (id, company_id, full_name, role, customer_id) values
+  ('10000000-0000-0000-0000-000000000005', '00000000-0000-0000-0000-00000000000a', 'Frau Praxis', 'kunde', '20000000-0000-0000-0000-000000000001');
+select pg_temp.expect_error('Kunden-Login braucht einen Kunden',
+  $q$insert into profiles (id, company_id, full_name, role) values ('10000000-0000-0000-0000-000000000009', '00000000-0000-0000-0000-00000000000a', 'x', 'kunde')$q$,
+  'new row for relation "profiles" violates check constraint "profiles_kunde_hat_kunden"');
+insert into inspections (company_id, site_id, items, photo_paths) values
+  ('00000000-0000-0000-0000-00000000000a', '30000000-0000-0000-0000-000000000001', '[{"title":"Böden","grade":1}]', '{00000000-0000-0000-0000-00000000000a/10000000-0000-0000-0000-000000000001/pruef.jpg}'),
+  ('00000000-0000-0000-0000-00000000000a', '30000000-0000-0000-0000-000000000009', '[]', '{}');
+insert into storage.objects (bucket_id, name) values ('fotos', '00000000-0000-0000-0000-00000000000a/10000000-0000-0000-0000-000000000001/pruef.jpg');
+set role authenticated;
+set request.jwt.claim.sub = '10000000-0000-0000-0000-000000000005';
+select pg_temp.expect('Kunde sieht nur eigene Objekte', (select count(*) from sites), 3);
+select pg_temp.expect('Kunde sieht kein fremdes Objekt', (select count(*) from sites where name = 'Autohaus Halle'), 0);
+select pg_temp.expect('Kunde sieht Einsätze seiner Objekte', (select count(*) > 0 from visits)::int, 1);
+select pg_temp.expect('Kunde sieht keine Mitarbeiterprofile', (select count(*) from profiles), 1);
+select pg_temp.expect('Kunde sieht keine Preise', (select count(*) from site_billing), 0);
+select pg_temp.expect('Kunde sieht keine Zeiten', (select count(*) from time_entries), 0);
+select pg_temp.expect('Kunde sieht keine anderen Kunden', (select count(*) from customers), 1);
+select pg_temp.expect('Kunde sieht eigenen Prüfbericht', (select count(*) from inspections), 1);
+select pg_temp.expect('Kunde sieht Prüffoto', (select count(*) from storage.objects where name like '%pruef.jpg'), 1);
+insert into reports (company_id, site_id, author_id, kind, text) values
+  ('00000000-0000-0000-0000-00000000000a', '30000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000005', 'reklamation', 'Mülleimer nicht geleert');
+select pg_temp.expect('Kunde meldet Reklamation', (select count(*) from reports where kind = 'reklamation'), 1);
+select pg_temp.expect_error('Kunde meldet nicht für fremdes Objekt',
+  $q$insert into reports (company_id, site_id, author_id, kind, text) values ('00000000-0000-0000-0000-00000000000a', '30000000-0000-0000-0000-000000000009', '10000000-0000-0000-0000-000000000005', 'reklamation', 'x')$q$,
+  'new row violates row-level security policy for table "reports"');
+select pg_temp.expect_error('Kunde meldet nur Reklamationen',
+  $q$insert into reports (company_id, site_id, author_id, kind, text) values ('00000000-0000-0000-0000-00000000000a', '30000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000005', 'problem', 'x')$q$,
+  'new row violates row-level security policy for table "reports"');
+select pg_temp.expect_error('Kunde ändert seine Rolle nicht',
+  $q$update profiles set role = 'chef', customer_id = null where id = '10000000-0000-0000-0000-000000000005'$q$,
+  'Rolle, Firma und Status kann nur das Büro ändern');
+reset role;
+
+-- Benachrichtigungen: Reklamation landet beim Chef, nicht bei der Mitarbeiterin
+set role authenticated;
+set request.jwt.claim.sub = '10000000-0000-0000-0000-000000000001';
+select pg_temp.expect('Chef bekommt Reklamation', (select count(*) from notifications where kind = 'complaint_new'), 1);
+set request.jwt.claim.sub = '10000000-0000-0000-0000-000000000002';
+select pg_temp.expect('Mitarbeiterin sieht keine Büro-Nachrichten', (select count(*) from notifications where kind in ('complaint_new', 'report_new')), 0);
+select pg_temp.expect_error('Benachrichtigungen nicht selbst erzeugen',
+  $q$select notify_user('10000000-0000-0000-0000-000000000001', 'x', '{}')$q$,
+  'permission denied for function notify_user');
+select save_push_subscription('https://push.example/abc', 'p', 'a');
+select pg_temp.expect('Gerät für Push angemeldet', (select count(*) from push_subscriptions), 1);
+reset role;
+
+-- Krankmeldung: geplante Einsätze werden frei, Büro und Mitarbeiterin werden informiert
+insert into visits (id, company_id, site_id, employee_id, date, start_time, planned_minutes) values
+  ('40000000-0000-0000-0000-000000000009', '00000000-0000-0000-0000-00000000000a', '30000000-0000-0000-0000-000000000003', '10000000-0000-0000-0000-000000000002', berlin_today() + 1, '07:00', 60);
+set role authenticated;
+set request.jwt.claim.sub = '10000000-0000-0000-0000-000000000002';
+insert into absences (company_id, employee_id, kind, date_from, date_to)
+  values ('00000000-0000-0000-0000-00000000000a', '10000000-0000-0000-0000-000000000002', 'krank', berlin_today() + 1, berlin_today() + 1);
+set request.jwt.claim.sub = '10000000-0000-0000-0000-000000000001';
+select pg_temp.expect('Einsatz bei Krankheit frei', (select count(*) from visits where id = '40000000-0000-0000-0000-000000000009' and employee_id is null), 1);
+select pg_temp.expect('Büro erfährt von Krankmeldung', (select count(*) from notifications where kind = 'absence_new' and params->>'from' = (berlin_today() + 1)::text), 1);
+-- Chef gibt den Einsatz an jemand anderen: der bekommt eine Nachricht
+update visits set employee_id = '10000000-0000-0000-0000-000000000001' where id = '40000000-0000-0000-0000-000000000009';
+select pg_temp.expect('Neuer Mitarbeiter wird benachrichtigt', (select count(*) from notifications where kind = 'visit_new'), 1);
+update absences set approved = true where employee_id = '10000000-0000-0000-0000-000000000002' and date_from = berlin_today() + 1;
+set request.jwt.claim.sub = '10000000-0000-0000-0000-000000000002';
+select pg_temp.expect('Mitarbeiterin erfährt Bestätigung', (select count(*) from notifications where kind = 'absence_ok'), 1);
+reset role;

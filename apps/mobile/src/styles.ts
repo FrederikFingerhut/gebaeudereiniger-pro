@@ -87,6 +87,8 @@ export const styles = StyleSheet.create({
   doneTitle: { fontSize: 26, fontWeight: "800", color: c.text, marginTop: 8 },
   doneSubtitle: { fontSize: 16, color: c.muted },
 
+  stepper: { width: 48, height: 48, borderRadius: 12, backgroundColor: c.soft, alignItems: "center", justifyContent: "center" },
+
   langs: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   lang: { flexGrow: 1, minWidth: 70, backgroundColor: c.surface, borderWidth: 2, borderColor: c.line, borderRadius: 12, paddingVertical: 12, alignItems: "center" },
   langActive: { borderColor: c.primary, backgroundColor: c.soft },
