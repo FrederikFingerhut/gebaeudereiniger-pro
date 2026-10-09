@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addDays, brand, decimalHours, hoursCsv, monthRange, monthlyHours, logoSvg, berlinDate, buildInvoiceDrafts, checklistTitle, clockErrorKey, clockErrors, isNetworkError, compareSiteHours, expandSeries, isoWeekday, mondayOf, siteFromRow, texts, visitFromRow, workedMinutes } from "./index";
+import { addDays, brand, calculateOffer, calculateYield, marketRates, minimumRates, defaultCalcSettings, parseEuro, decimalHours, hoursCsv, monthRange, monthlyHours, logoSvg, berlinDate, buildInvoiceDrafts, checklistTitle, clockErrorKey, clockErrors, isNetworkError, compareSiteHours, expandSeries, isoWeekday, mondayOf, siteFromRow, texts, visitFromRow, workedMinutes } from "./index";
 import type { Site } from "./types";
 
 describe("Einsatzplanung", () => {
@@ -165,5 +165,60 @@ describe("Offline", () => {
     expect(isNetworkError({ message: "nicht_am_objekt", code: "P0001" })).toBe(false);
     expect(isNetworkError({ message: "fetch failed", status: 500 })).toBe(false);
     expect(isNetworkError(null)).toBe(false);
+  });
+});
+
+describe("Kalkulation", () => {
+  const s = { wageCents: 1500, ancillaryPercent: 80, materialPercent: 5, overheadPercent: 12, profitPercent: 8 };
+
+  it("rechnet Zeit, Stundensatz und Monatspreis", () => {
+    const r = calculateOffer({ areaM2: 600, m2PerHour: 200, extraMinutes: 15, visitsPerWeek: 3 }, s);
+    expect(r.minutesPerVisit).toBe(195); // 3 h + 15 min
+    expect(r.visitsPerMonth).toBeCloseTo(13, 0);
+    expect(r.laborCentsPerHour).toBe(2700); // 15 € + 80 %
+    expect(r.costCentsPerHour).toBe(3159); // + 17 %
+    expect(r.rateCentsPerHour).toBe(3412); // + 8 %
+    expect(r.hoursPerMonth).toBeCloseTo(42.25, 2);
+    expect(r.priceCentsPerMonth).toBe(Math.round(3159 * 1.08 * 42.25));
+    expect(r.profitCentsPerMonth).toBe(r.priceCentsPerMonth - r.costCentsPerMonth);
+    expect(r.priceCentsPerM2).toBeCloseTo(r.priceCentsPerMonth / 600, 1);
+  });
+
+  it("verträgt leere Eingaben", () => {
+    const r = calculateOffer({ areaM2: 0, m2PerHour: 0, extraMinutes: 0, visitsPerWeek: 0 }, defaultCalcSettings);
+    expect(r.priceCentsPerMonth).toBe(0);
+    expect(r.priceCentsPerVisit).toBe(0);
+    expect(r.priceCentsPerM2).toBe(0);
+  });
+
+  it("liest Euro-Beträge", () => {
+    expect(parseEuro("18,50")).toBe(1850);
+    expect(parseEuro("1.234,5 €")).toBe(123450);
+    expect(parseEuro("0.35")).toBe(35);
+    expect(parseEuro("")).toBeNull();
+    expect(parseEuro("abc")).toBeNull();
+    expect(parseEuro("-3")).toBeNull();
+  });
+  it("rechnet die Rendite aus Richtpreis und Kosten", () => {
+    const base = { priceCentsPerHour: 3500, wageCentsPerHour: 1540, materialCentsPerHour: 100, wearCentsPerHour: 100, travelCentsPerVisit: 0, hoursPerVisit: 1, visits: 1 };
+    const r = calculateYield(base);
+    expect(r.revenueCents).toBe(3500);
+    expect(r.costCents).toBe(1740);
+    expect(r.profitCents).toBe(1760);
+    expect(r.profitCentsPerHour).toBe(1760);
+
+    const month = calculateYield({ ...base, hoursPerVisit: 2, visits: 20, travelCentsPerVisit: 500 });
+    expect(month.hours).toBe(40);
+    expect(month.travelCents).toBe(10000);
+    expect(month.profitCents).toBe(1760 * 40 - 10000);
+    expect(month.profitCentsPerVisit).toBe(month.profitCents / 20);
+    expect(calculateYield({ ...base, visits: 0 }).profitCentsPerHour).toBe(0);
+  });
+
+  it("Marktwerte liegen nie unter dem Mindestsatz", () => {
+    for (const m of marketRates) {
+      expect(m.fromCents).toBeGreaterThanOrEqual(minimumRates[m.kind]);
+      expect(m.toCents).toBeGreaterThanOrEqual(m.fromCents);
+    }
   });
 });

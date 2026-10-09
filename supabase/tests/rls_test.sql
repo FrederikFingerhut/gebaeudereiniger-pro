@@ -198,3 +198,23 @@ select pg_temp.expect('Nachgereichtes Ausstempeln wird markiert',
 select pg_temp.expect('Normales Stempeln ist nicht markiert',
   (select count(*) from time_entries where method = 'qr' and not clock_in_late and not clock_out_late), 1);
 reset role;
+
+-- Kalkulation und Richtpreise: nur Büro und Chef
+grant all on all tables in schema public to authenticated;
+insert into price_guides (company_id, title, unit, price_cents) values
+  ('00000000-0000-0000-0000-00000000000a', 'Glasreinigung', 'm2', 150),
+  ('00000000-0000-0000-0000-00000000000b', 'Treppenhaus', 'einsatz', 4500);
+insert into calc_settings (company_id) values ('00000000-0000-0000-0000-00000000000a');
+set role authenticated;
+set request.jwt.claim.sub = '10000000-0000-0000-0000-000000000002';
+select pg_temp.expect('Mitarbeiterin sieht keine Richtpreise', (select count(*) from price_guides), 0);
+select pg_temp.expect('Mitarbeiterin sieht keine Kalkulation', (select count(*) from calc_settings), 0);
+select pg_temp.expect_error('Mitarbeiterin legt keine Richtpreise an',
+  $q$insert into price_guides (company_id, title, price_cents) values ('00000000-0000-0000-0000-00000000000a', 'x', 1)$q$,
+  'new row violates row-level security policy for table "price_guides"');
+set request.jwt.claim.sub = '10000000-0000-0000-0000-000000000001';
+select pg_temp.expect('Chef sieht nur eigene Richtpreise', (select count(*) from price_guides), 1);
+select pg_temp.expect('Chef sieht Kalkulation', (select count(*) from calc_settings), 1);
+insert into price_guides (company_id, title, unit, price_cents) values ('00000000-0000-0000-0000-00000000000a', 'Grundreinigung', 'stunde', 3500);
+select pg_temp.expect('Chef legt Richtpreis an', (select count(*) from price_guides), 2);
+reset role;
