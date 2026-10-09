@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addDays, brand, inspectionScore, parseInspectionItems, scoreTone, pushConfig, vapidKeyBytes, notificationText, weekdayList, entryMinutes, siteProfit, lexofficeInvoice, nextOfferNumber, offerTotals, parseOfferLines, calculateOffer, calculateYield, marketRates, minimumRates, defaultCalcSettings, parseEuro, decimalHours, hoursCsv, monthRange, monthlyHours, logoSvg, berlinDate, buildInvoiceDrafts, checklistTitle, clockErrorKey, clockErrors, isNetworkError, compareSiteHours, expandSeries, isoWeekday, mondayOf, siteFromRow, texts, visitFromRow, workedMinutes } from "./index";
+import { chatThreads, chatUnread, cleanChatText, addDays, brand, inspectionScore, parseInspectionItems, scoreTone, pushConfig, vapidKeyBytes, notificationText, weekdayList, entryMinutes, siteProfit, lexofficeInvoice, nextOfferNumber, offerTotals, parseOfferLines, calculateOffer, calculateYield, marketRates, minimumRates, defaultCalcSettings, parseEuro, decimalHours, hoursCsv, monthRange, monthlyHours, logoSvg, berlinDate, buildInvoiceDrafts, checklistTitle, clockErrorKey, clockErrors, isNetworkError, compareSiteHours, expandSeries, isoWeekday, mondayOf, siteFromRow, texts, visitFromRow, workedMinutes } from "./index";
 import type { Site } from "./types";
 
 describe("Einsatzplanung", () => {
@@ -340,5 +340,39 @@ describe("Qualitätskontrolle", () => {
   it("verwirft ungültige Noten", () => {
     expect(parseInspectionItems([{ title: "x", grade: 7 }, { title: "", grade: 2 }, { title: "Müll", grade: "4", note: " voll " }]))
       .toEqual([{ title: "Müll", grade: 4, note: "voll" }]);
+  });
+});
+
+describe("Chat", () => {
+  const m = (id: string, employee: string, author: string, at: string) => ({ id, employee_id: employee, author_id: author, body: id, created_at: at });
+  const msgs = [
+    m("1", "anna", "anna", "2026-10-09T08:00:00Z"),
+    m("2", "anna", "chef", "2026-10-09T08:05:00Z"),
+    m("3", "anna", "anna", "2026-10-09T09:00:00Z"),
+    m("4", "paul", "paul", "2026-10-09T07:00:00Z"),
+  ];
+
+  it("zählt nur fremde Nachrichten nach dem Lesen", () => {
+    expect(chatUnread(msgs.filter((x) => x.employee_id === "anna"), "chef", "2026-10-09T08:30:00Z")).toBe(1);
+    expect(chatUnread(msgs.filter((x) => x.employee_id === "anna"), "chef", null)).toBe(2);
+    expect(chatUnread(msgs.filter((x) => x.employee_id === "anna"), "anna", null)).toBe(1);
+  });
+
+  it("sortiert Gespräche nach der neuesten Nachricht", () => {
+    const threads = chatThreads(msgs, "chef", { paul: "2026-10-09T07:30:00Z" });
+    expect(threads.map((t) => t.employeeId)).toEqual(["anna", "paul"]);
+    expect(threads[0].last.id).toBe("3");
+    expect(threads[0].unread).toBe(2);
+    expect(threads[1].unread).toBe(0);
+  });
+
+  it("säubert den Text", () => {
+    expect(cleanChatText("  Hallo  ")).toBe("Hallo");
+    expect(cleanChatText("   ")).toBeNull();
+    expect(cleanChatText("x".repeat(3000))?.length).toBe(2000);
+  });
+
+  it("Benachrichtigung nennt den Absender", () => {
+    expect(notificationText("de", "chat", { name: "Oksana", text: "Schlüssel fehlt" })).toEqual({ title: "Nachricht von Oksana", body: "Schlüssel fehlt" });
   });
 });

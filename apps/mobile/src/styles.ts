@@ -87,6 +87,16 @@ export const styles = StyleSheet.create({
   doneTitle: { fontSize: 26, fontWeight: "800", color: c.text, marginTop: 8 },
   doneSubtitle: { fontSize: 16, color: c.muted },
 
+  bubble: { maxWidth: "85%", borderRadius: 16, paddingHorizontal: 12, paddingVertical: 8, gap: 2 },
+  bubbleMine: { alignSelf: "flex-end", backgroundColor: c.primary, borderBottomRightRadius: 4 },
+  bubbleTheirs: { alignSelf: "flex-start", backgroundColor: c.surface, borderBottomLeftRadius: 4, ...shadow },
+  bubbleAuthor: { fontSize: 12, fontWeight: "800", color: c.primary },
+  bubbleText: { fontSize: 16, color: c.text },
+  bubbleTime: { fontSize: 11, color: c.muted, opacity: 0.8, alignSelf: "flex-end" },
+  composer: { flexDirection: "row", alignItems: "flex-end", gap: 8, padding: 10, backgroundColor: c.background, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.line },
+  composerInput: { flex: 1, backgroundColor: c.surface, borderWidth: 1, borderColor: c.line, borderRadius: 22, paddingHorizontal: 16, paddingVertical: 11, fontSize: 16, color: c.text, maxHeight: 120 },
+  sendButton: { width: 46, height: 46, borderRadius: 23, backgroundColor: c.primary, alignItems: "center", justifyContent: "center" },
+
   stepper: { width: 48, height: 48, borderRadius: 12, backgroundColor: c.soft, alignItems: "center", justifyContent: "center" },
 
   langs: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
