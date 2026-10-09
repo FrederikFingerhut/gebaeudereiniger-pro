@@ -95,6 +95,7 @@ export function Chat({ lang, profile, onRead }: { lang: Language; profile: Profi
           placeholder={t(lang, "chatPlaceholder")}
           placeholderTextColor={c.muted}
           multiline
+          numberOfLines={1}
           maxLength={CHAT_MAX_LENGTH}
           style={styles.composerInput}
           accessibilityLabel={t(lang, "chatPlaceholder")}

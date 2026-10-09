@@ -11,6 +11,7 @@ import { ThemeToggle } from "./theme-toggle";
 
 const items = [
   { href: "/", label: "Übersicht" },
+  { href: "/chat", label: "Chat" },
   { href: "/planung", label: "Einsatzplan" },
   { href: "/objekte", label: "Objekte" },
   { href: "/qualitaet", label: "Qualität" },
