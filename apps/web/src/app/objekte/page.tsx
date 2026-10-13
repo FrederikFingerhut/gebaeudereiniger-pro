@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import Link from "next/link";
-import { formatEuro, siteFromRow, type SiteRow } from "@gp/shared";
+import { formatEuro, siteFromRow, suspiciousSites, type SiteRow } from "@gp/shared";
 import { Card, PageTitle, Pill } from "@/components/ui";
 import { ActionForm, Field, inputClass } from "@/components/action-form";
 import { requireMe } from "@/lib/supabase";
@@ -28,7 +28,10 @@ async function Sites() {
     supabase.from("customers").select("id, name").order("name"),
     isOffice ? supabase.from("profiles").select("id, full_name, active, customers(name)").eq("role", "kunde").order("full_name") : Promise.resolve({ data: [] }),
   ]);
-  const sites = ((rows ?? []) as unknown as SiteRow[]).map((r) => ({ ...siteFromRow(r), hasLocation: r.latitude !== null }));
+  const siteRows = (rows ?? []) as unknown as SiteRow[];
+  // Standort weit weg von allen anderen Objekten: meist falsch aus der Adresse übersetzt.
+  const suspicious = suspiciousSites(siteRows);
+  const sites = siteRows.map((r) => ({ ...siteFromRow(r), hasLocation: r.latitude !== null, suspicious: suspicious.has(r.id) }));
 
   return (
     <div className="flex flex-col gap-4">
@@ -48,7 +51,17 @@ async function Sites() {
               <dt className="text-muted">Kalkuliert</dt>
               <dd>{s.plannedMinutes} Minuten pro Einsatz</dd>
               <dt className="text-muted">Stempeln</dt>
-              <dd>{s.hasLocation ? <Pill tone="ok">GPS und QR-Code</Pill> : <Pill tone="warn">nur QR-Code</Pill>}</dd>
+              <dd>
+                {s.suspicious ? (
+                  <Link href={`/objekte/${s.id}`} title="Der Standort liegt weit weg von deinen anderen Objekten. Bitte prüfen und korrigieren.">
+                    <Pill tone="bad">Standort prüfen</Pill>
+                  </Link>
+                ) : s.hasLocation ? (
+                  <Pill tone="ok">GPS und QR-Code</Pill>
+                ) : (
+                  <Pill tone="warn">nur QR-Code</Pill>
+                )}
+              </dd>
             </dl>
           </Card>
         ))}

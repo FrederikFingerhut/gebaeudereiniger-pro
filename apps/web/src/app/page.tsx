@@ -1,9 +1,10 @@
 import { Suspense } from "react";
-import { berlinDate, compareSiteHours, workedMinutes, type VisitStatus } from "@gp/shared";
+import { berlinDate, compareSiteHours, formatDistance, workedMinutes, type VisitStatus } from "@gp/shared";
 import { Card, PageTitle, Pill, StatusPill } from "@/components/ui";
 import { requireMe } from "@/lib/supabase";
 import { clockTime, hours, one } from "@/lib/format";
 import { markReportDone } from "./actions";
+import { adoptEntryLocation, markOffSiteChecked } from "./objekte/actions";
 import { Skeleton } from "@/components/skeleton";
 
 export default function OverviewPage() {
@@ -35,11 +36,18 @@ async function Overview() {
   const monthStart = today.slice(0, 8) + "01";
   await supabase.rpc("ensure_visits", { p_from: today, p_to: today });
 
-  const [visitsRes, reportsRes, absencesRes, monthRes] = await Promise.all([
+  const [visitsRes, reportsRes, absencesRes, monthRes, offSiteRes] = await Promise.all([
     supabase.from("visits").select("id, start_time, status, sites(name), profiles(full_name)").eq("date", today).order("start_time"),
     supabase.from("reports").select("id, kind, text, photo_paths, created_at, sites(name), profiles(full_name)").eq("status", "offen").order("created_at", { ascending: false }),
     supabase.from("absences").select("id, kind, date_to, profiles(full_name)").lte("date_from", today).gte("date_to", today),
     supabase.from("time_entries").select("clock_in_at, clock_out_at, visits(site_id, planned_minutes, sites(name))").gte("clock_in_at", monthStart),
+    supabase
+      .from("time_entries")
+      .select("id, clock_in_at, clock_in_distance_m, clock_in_latitude, profiles!time_entries_employee_id_fkey(full_name), visits(sites(name))")
+      .eq("off_site", true)
+      .eq("off_site_checked", false)
+      .order("clock_in_at", { ascending: false })
+      .limit(20),
   ]);
   const visits = (visitsRes.data ?? []) as unknown as VisitToday[];
   const { data: entries } = await supabase
@@ -64,6 +72,8 @@ async function Overview() {
   const { data: signed } = photoPaths.length ? await supabase.storage.from("fotos").createSignedUrls(photoPaths, 3600) : { data: [] };
   const photoUrl = new Map<string, string>();
   for (const s of signed ?? []) if (s.path && s.signedUrl) photoUrl.set(s.path, s.signedUrl);
+  type OffSite = { id: string; clock_in_at: string; clock_in_distance_m: number | null; clock_in_latitude: number | null; profiles: { full_name: string } | null; visits: { sites: { name: string } | null } | null };
+  const offSite = (offSiteRes.data ?? []) as unknown as OffSite[];
   const absences = (absencesRes.data ?? []) as unknown as { id: string; kind: string; date_to: string; profiles: { full_name: string } | null }[];
 
   return (
@@ -105,6 +115,39 @@ async function Overview() {
               ))}
             </ul>
           </Card>
+
+          {offSite.length > 0 && (
+            <Card title="Außerhalb eingestempelt">
+              <p className="text-sm text-muted -mt-1 mb-2">
+                Der Standort passte beim Einstempeln nicht zum Objekt. Ist der Objekt-Standort falsch hinterlegt, übernimm den Standort des Mitarbeiters.
+              </p>
+              <ul className="divide-y divide-line">
+                {offSite.map((e) => (
+                  <li key={e.id} className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm">
+                    <div className="min-w-0">
+                      <div className="font-semibold">
+                        {one(e.profiles)?.full_name} · {one(one(e.visits)?.sites)?.name}
+                      </div>
+                      <div className="text-xs text-muted">
+                        {new Date(e.clock_in_at).toLocaleString("de-DE", { timeZone: "Europe/Berlin", dateStyle: "short", timeStyle: "short" })} ·{" "}
+                        {e.clock_in_distance_m !== null ? `${formatDistance("de", e.clock_in_distance_m)} entfernt` : "Objekt hatte keinen Standort"}
+                      </div>
+                    </div>
+                    <div className="flex gap-1.5">
+                      {e.clock_in_latitude !== null && (
+                        <form action={adoptEntryLocation.bind(null, e.id)}>
+                          <button className="rounded-lg bg-primary text-on-primary px-3 py-1.5 font-semibold whitespace-nowrap">Standort übernehmen</button>
+                        </form>
+                      )}
+                      <form action={markOffSiteChecked.bind(null, e.id)}>
+                        <button className="rounded-lg bg-soft px-3 py-1.5 font-semibold whitespace-nowrap">In Ordnung</button>
+                      </form>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </Card>
+          )}
 
           <Card title="Meldungen">
             {reports.length === 0 && <p className="text-sm text-muted">Keine offenen Meldungen.</p>}
