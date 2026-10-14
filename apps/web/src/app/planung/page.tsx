@@ -51,6 +51,7 @@ async function Planning({ searchParams }: { searchParams: PageProps<"/planung">[
             <Link className="rounded-lg bg-soft px-3 py-1.5" href={`/planung?woche=${addDays(week, -7)}`}>‹ Vorher</Link>
             <Link className="rounded-lg bg-soft px-3 py-1.5" href="/planung">Heute</Link>
             <Link className="rounded-lg bg-soft px-3 py-1.5" href={`/planung?woche=${addDays(week, 7)}`}>Weiter ›</Link>
+            <Link className="rounded-lg bg-soft px-3 py-1.5" href="/planung/tausch">Schichttausch</Link>
           </div>
         }
       >

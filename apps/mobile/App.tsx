@@ -8,6 +8,7 @@ import { appUrls, brand, isNetworkError, languages, t, type Language, type Profi
 import { supabase } from "./src/supabase";
 import { chatUnreadCount, loadDay, loadMyReports, loadProfile, saveLanguage, unreadCount, type Day, type MyReport, type MyVisit } from "./src/data";
 import { Absences, Messages, PushSwitch } from "./src/Extras";
+import { Swaps } from "./src/Swaps";
 import { Chat } from "./src/Chat";
 import { Account } from "./src/Account";
 import { registerServiceWorker } from "./src/push";
@@ -329,7 +330,7 @@ function Home({ lang, changeLang, profile, notify }: { lang: Language; changeLan
   else if (tab === "today")
     screen = (
       <FadeIn key="today">
-        <Today lang={lang} day={day} onOpen={setOpenId} reload={reload} />
+        <Today lang={lang} day={day} onOpen={setOpenId} reload={reload} userId={profile.id} notify={notify} />
       </FadeIn>
     );
   else if (tab === "chat")
@@ -385,7 +386,22 @@ function Home({ lang, changeLang, profile, notify }: { lang: Language; changeLan
   );
 }
 
-function Today({ lang, day, onOpen, reload }: { lang: Language; day: Day; onOpen: (id: string) => void; reload: () => Promise<void> }) {
+function Today({
+  lang,
+  day,
+  onOpen,
+  reload,
+  userId,
+  notify,
+}: {
+  lang: Language;
+  day: Day;
+  onOpen: (id: string) => void;
+  reload: () => Promise<void>;
+  userId: string;
+  notify: (key: TextKey) => void;
+}) {
+  const [swapKey, setSwapKey] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
   const running = day.visits.find((v) => v.id === day.openEntry?.visit_id);
   const rest = day.visits.filter((v) => v !== running);
@@ -400,6 +416,7 @@ function Today({ lang, day, onOpen, reload }: { lang: Language; day: Day; onOpen
           onRefresh={async () => {
             setRefreshing(true);
             await reload();
+            setSwapKey((k) => k + 1);
             setRefreshing(false);
           }}
         />
@@ -440,6 +457,7 @@ function Today({ lang, day, onOpen, reload }: { lang: Language; day: Day; onOpen
           </Pressable>
         );
       })}
+      <Swaps key={swapKey} lang={lang} userId={userId} notify={notify} onChanged={reload} />
     </ScrollView>
   );
 }

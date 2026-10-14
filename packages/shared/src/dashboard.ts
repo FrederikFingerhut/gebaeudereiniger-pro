@@ -117,7 +117,7 @@ export function sickDaysAll(absences: (AccountAbsence & { employee_id: string })
 
 // Warnungen -----------------------------------------------------------------------------
 
-export type WarningKind = "verlust" | "nicht_gestempelt" | "nicht_ausgestempelt" | "ueberstunden";
+export type WarningKind = "verlust" | "nicht_gestempelt" | "nicht_ausgestempelt" | "ueberstunden" | "material" | "tausch";
 
 export interface AppWarning {
   kind: WarningKind;
@@ -144,6 +144,10 @@ export function buildWarnings(input: {
   /** Noch offene Zeiteinträge */
   openEntries: { entryId: string; employeeName: string; siteName: string; clockInAt: string }[];
   overtime: { employeeId: string; employeeName: string; balanceMinutes: number }[];
+  /** Material, das als knapp oder fehlend gemeldet ist */
+  material?: { siteId: string; siteName: string; name: string; status: "wenig" | "fehlt" }[];
+  /** Tauschanfragen, die ein Kollege übernommen hat und die auf Bestätigung warten */
+  swaps?: { siteName: string; date: string; from: string; to: string }[];
   /** Jetzt in deutscher Zeit, "YYYY-MM-DDTHH:MM" */
   nowBerlin: string;
   now?: Date;
@@ -173,6 +177,20 @@ export function buildWarnings(input: {
     if (o.balanceMinutes < OVERTIME_WARN_MINUTES) continue;
     const h = (o.balanceMinutes / 60).toLocaleString("de-DE", { maximumFractionDigits: 1 });
     warnings.push({ kind: "ueberstunden", title: `Überstunden: ${o.employeeName}`, detail: `+${h} Std. in diesem Monat`, href: `/mitarbeiter/${o.employeeId}` });
+  }
+  // Material je Objekt zusammenfassen, damit fünf leere Sachen nicht fünf Zeilen werden.
+  const bySite = new Map<string, { siteName: string; names: string[]; missing: boolean }>();
+  for (const m of input.material ?? []) {
+    const entry = bySite.get(m.siteId) ?? { siteName: m.siteName, names: [], missing: false };
+    entry.names.push(m.status === "fehlt" ? m.name : `${m.name} (knapp)`);
+    entry.missing ||= m.status === "fehlt";
+    bySite.set(m.siteId, entry);
+  }
+  for (const [siteId, m] of bySite) {
+    warnings.push({ kind: "material", title: `${m.missing ? "Material fehlt" : "Material wird knapp"}: ${m.siteName}`, detail: m.names.join(", "), href: `/objekte/${siteId}#material` });
+  }
+  for (const s of input.swaps ?? []) {
+    warnings.push({ kind: "tausch", title: `Schichttausch bestätigen: ${s.siteName}`, detail: `${s.to} übernimmt von ${s.from}, ${dateDe(s.date)}`, href: `/planung/tausch` });
   }
   return warnings;
 }

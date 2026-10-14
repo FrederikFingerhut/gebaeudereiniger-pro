@@ -10,6 +10,8 @@ const warningTone: Record<AppWarning["kind"], { label: string; tone: "bad" | "wa
   nicht_gestempelt: { label: "Stempeln", tone: "warn" },
   nicht_ausgestempelt: { label: "Stempeln", tone: "warn" },
   ueberstunden: { label: "Stunden", tone: "warn" },
+  material: { label: "Material", tone: "warn" },
+  tausch: { label: "Tausch", tone: "warn" },
 };
 
 /** Warnungen und „Zahlen auf einen Blick“ auf der Startseite (lädt getrennt von der Übersicht). */
@@ -23,7 +25,7 @@ export function InsightsView({ warnings, figures }: { warnings: AppWarning[]; fi
   return (
     <div className="flex flex-col gap-4 mb-4">
       <Card title="Warnungen" action={warnings.length ? <Pill tone="warn">{warnings.length}</Pill> : <Pill tone="ok">alles im Lot</Pill>}>
-        {warnings.length === 0 && <p className="text-sm text-muted">Keine Verlust-Objekte, keine vergessenen Einsätze und keine auffälligen Überstunden.</p>}
+        {warnings.length === 0 && <p className="text-sm text-muted">Keine Verlust-Objekte, keine vergessenen Einsätze, keine auffälligen Überstunden, kein fehlendes Material.</p>}
         <ul className="divide-y divide-line">
           {warnings.map((w, i) => (
             <li key={i} className="py-2 flex items-center justify-between gap-3 text-sm">

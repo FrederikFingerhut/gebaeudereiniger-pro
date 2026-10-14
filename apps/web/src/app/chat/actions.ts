@@ -1,7 +1,9 @@
 "use server";
 
 import { chatThreads, cleanChatText, type ChatMessage } from "@gp/shared";
+import { refresh } from "next/cache";
 import { requireMe } from "@/lib/supabase";
+import type { FormState } from "@/components/action-form";
 
 const MANAGERS = ["objektleiter", "buero", "chef"];
 
@@ -69,4 +71,38 @@ export async function sendMessage(employeeId: string, body: string): Promise<{ e
   if (!text) return {};
   const { error } = await supabase.from("chat_messages").insert({ company_id: profile.company_id, employee_id: employeeId, author_id: userId, body: text });
   return error ? { error: "Nachricht konnte nicht gesendet werden." } : {};
+}
+
+/** Übersetzt Nachrichten von Mitarbeitern ins Deutsche (DeepL über die Funktion "translate"). */
+export async function translateLines(ids: string[]): Promise<{ translations: Record<string, string | null>; missingKey?: boolean }> {
+  const { supabase } = await requireManager();
+  if (ids.length === 0) return { translations: {} };
+  const { data, error } = await supabase.functions.invoke("translate", { body: { ids: ids.slice(0, 50), lang: "de" } });
+  if (error || !data) return { translations: {} };
+  return data as { translations: Record<string, string | null>; missingKey?: boolean };
+}
+
+/** DeepL-Schlüssel speichern (leer = Übersetzung aus). Wird vorher bei DeepL geprüft. */
+export async function saveDeeplKey(_: FormState, data: FormData): Promise<FormState> {
+  const { supabase, profile, isOffice } = await requireMe();
+  if (!isOffice) return { error: "Keine Berechtigung." };
+  const key = String(data.get("key") ?? "").trim();
+  const now = new Date().toISOString();
+  if (!key) {
+    await supabase.from("company_integrations").update({ deepl_api_key: null, updated_at: now }).eq("company_id", profile.company_id);
+    refresh();
+    return { ok: "Übersetzung ausgeschaltet." };
+  }
+  const host = key.endsWith(":fx") ? "https://api-free.deepl.com" : "https://api.deepl.com";
+  try {
+    const res = await fetch(`${host}/v2/usage`, { headers: { Authorization: `DeepL-Auth-Key ${key}` }, cache: "no-store" });
+    if (res.status === 403) return { error: "DeepL kennt diesen Schlüssel nicht. Bitte nochmal kopieren." };
+    if (!res.ok) return { error: "DeepL ist gerade nicht erreichbar. Bitte später nochmal." };
+  } catch {
+    return { error: "DeepL ist gerade nicht erreichbar. Bitte später nochmal." };
+  }
+  const { error } = await supabase.from("company_integrations").upsert({ company_id: profile.company_id, deepl_api_key: key, updated_at: now });
+  if (error) return { error: "Speichern hat nicht geklappt." };
+  refresh();
+  return { ok: "Übersetzung ist an. Nachrichten in anderen Sprachen erscheinen jetzt auch auf Deutsch." };
 }

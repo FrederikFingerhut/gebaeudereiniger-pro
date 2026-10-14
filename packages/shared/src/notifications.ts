@@ -44,6 +44,11 @@ const titles: Record<string, TextKey> = {
   visit_not_clocked: "n_visit_not_clocked",
   contract_deadline: "n_contract_deadline",
   contract_reminder: "n_contract_reminder",
+  swap_declined: "n_swap_declined",
+  swap_taken_you: "n_swap_taken_you",
+  swap_taken: "n_swap_taken",
+  swap_offered: "n_swap_offered",
+  material_missing: "n_material_missing",
 };
 
 const bodies: Record<string, TextKey> = {
@@ -63,6 +68,11 @@ const bodies: Record<string, TextKey> = {
   visit_not_clocked: "n_visit_not_clocked_body",
   contract_deadline: "n_contract_deadline_body",
   contract_reminder: "n_contract_reminder_body",
+  swap_declined: "n_swap_declined_body",
+  swap_taken_you: "n_swap_taken_you_body",
+  swap_taken: "n_swap_taken_body",
+  swap_offered: "n_swap_offered_body",
+  material_missing: "n_material_missing_body",
 };
 
 export function notificationText(lang: Language, kind: string, params: Params): { title: string; body: string } {
@@ -76,7 +86,11 @@ export function notificationText(lang: Language, kind: string, params: Params): 
     time: str("time"),
     date: str("date") ? shortDate(lang, str("date")) : "",
     weekdays: Array.isArray(params.weekdays) ? weekdayList(lang, params.weekdays.map(Number)) : "",
-    kind: str("kind") === "krank" ? t(lang, "sick") : t(lang, "vacation"),
+    kind:
+      str("kind") === "fehlt" ? t(lang, "materialMissing").toLowerCase()
+      : str("kind") === "wenig" ? t(lang, "materialLow").toLowerCase()
+      : str("kind") === "krank" ? t(lang, "sick")
+      : t(lang, "vacation"),
     month: /^\d{4}-\d{2}/.test(str("month"))
       ? new Intl.DateTimeFormat(locales[lang], { month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(`${str("month").slice(0, 7)}-01T00:00:00Z`))
       : "",

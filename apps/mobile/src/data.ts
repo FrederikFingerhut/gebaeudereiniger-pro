@@ -369,3 +369,101 @@ export async function payslipUrl(path: string): Promise<string> {
   if (error || !data) throw error ?? new Error("kein_link");
   return data.signedUrl;
 }
+
+// Material vor Ort ------------------------------------------------------------------------
+
+export type MaterialStatus = "ok" | "wenig" | "fehlt";
+export interface MaterialItem {
+  id: string;
+  name: string;
+  status: MaterialStatus;
+}
+
+export async function loadMaterial(siteId: string): Promise<MaterialItem[]> {
+  const { data, error } = await supabase.from("material_items").select("id, name, status").eq("site_id", siteId).order("position").order("name");
+  if (error) throw error;
+  return (data ?? []) as MaterialItem[];
+}
+
+export async function setMaterialStatus(itemId: string, status: MaterialStatus): Promise<void> {
+  const { error } = await supabase.rpc("set_material_status", { p_item: itemId, p_status: status });
+  if (error) throw error;
+}
+
+// Schichttausch ---------------------------------------------------------------------------
+
+export interface OpenSwap {
+  id: string;
+  site_name: string;
+  site_address: string;
+  date: string;
+  start_time: string;
+  planned_minutes: number;
+  offered_by_name: string;
+  note: string | null;
+}
+export interface UpcomingVisit {
+  id: string;
+  date: string;
+  startTime: string;
+  siteName: string;
+  /** Laufendes Angebot für diesen Einsatz */
+  swap: { id: string; status: "offen" | "angenommen"; takenBy: string | null } | null;
+}
+
+/** Wie weit im Voraus Einsätze abgegeben werden können. */
+export const SWAP_DAYS = 21;
+
+export async function loadSwaps(userId: string): Promise<{ open: OpenSwap[]; mine: UpcomingVisit[] }> {
+  const today = berlinDate();
+  const until = addDaysIso(today, SWAP_DAYS);
+  await supabase.rpc("ensure_visits", { p_from: today, p_to: until });
+  const [{ data: open, error: e1 }, { data: visits, error: e2 }, { data: swaps, error: e3 }] = await Promise.all([
+    supabase.rpc("open_swaps"),
+    supabase.from("visits").select("id, date, start_time, sites(name)").eq("employee_id", userId).eq("status", "geplant").gte("date", today).lte("date", until).order("date").order("start_time"),
+    supabase.from("visit_swaps").select("id, visit_id, status, profiles!visit_swaps_taken_by_fkey(full_name)").eq("offered_by", userId).in("status", ["offen", "angenommen"]),
+  ]);
+  if (e1 || e2 || e3) throw e1 ?? e2 ?? e3;
+  type Row = { id: string; date: string; start_time: string; sites: { name: string } | null };
+  type SwapRow = { id: string; visit_id: string; status: "offen" | "angenommen"; profiles: { full_name: string } | null };
+  const byVisit = new Map(((swaps ?? []) as unknown as SwapRow[]).map((s) => [s.visit_id, s]));
+  return {
+    open: ((open ?? []) as OpenSwap[]).map((o) => ({ ...o, start_time: o.start_time.slice(0, 5) })),
+    mine: ((visits ?? []) as unknown as Row[]).map((v) => {
+      const s = byVisit.get(v.id);
+      return {
+        id: v.id,
+        date: v.date,
+        startTime: v.start_time.slice(0, 5),
+        siteName: v.sites?.name ?? "",
+        swap: s ? { id: s.id, status: s.status, takenBy: s.profiles?.full_name ?? null } : null,
+      };
+    }),
+  };
+}
+
+export async function offerSwap(visitId: string): Promise<void> {
+  const { error } = await supabase.rpc("offer_swap", { p_visit: visitId });
+  if (error) throw error;
+}
+export async function takeSwap(swapId: string): Promise<void> {
+  const { error } = await supabase.rpc("take_swap", { p_swap: swapId });
+  if (error) throw error;
+}
+export async function withdrawSwap(swapId: string): Promise<void> {
+  const { error } = await supabase.rpc("withdraw_swap", { p_swap: swapId });
+  if (error) throw error;
+}
+
+// Chat-Übersetzung ------------------------------------------------------------------------
+
+/**
+ * Übersetzt Nachrichten in die eigene Sprache (DeepL über die Funktion "translate").
+ * Ergebnis je Nachricht: übersetzter Text oder null, wenn sie schon in der Sprache war.
+ * `missingKey`: Das Büro hat noch keinen DeepL-Schlüssel hinterlegt.
+ */
+export async function translateMessages(ids: string[], lang: string): Promise<{ translations: Record<string, string | null>; missingKey?: boolean }> {
+  const { data, error } = await supabase.functions.invoke("translate", { body: { ids, lang } });
+  if (error) throw error;
+  return data as { translations: Record<string, string | null>; missingKey?: boolean };
+}
