@@ -73,4 +73,17 @@ jobs:
         run: npx --yes eas-cli@24 build --platform "$PLATTFORM" --profile production --non-interactive --wait
       - name: iOS zu App Store Connect hochladen
         if: inputs.hochladen && env.PLATTFORM != 'android'
-        run: npx --yes eas-cli@24 submit --platform ios --latest --profile production --non-interactive
+        # „eas submit“ liest den App-Store-Connect-Schlüssel nur aus eas.json, nicht aus den
+        # Umgebungsvariablen. Deshalb tragen wir ihn hier nur für diesen Lauf ein (nicht im Repo).
+        run: |
+          node -e '
+            const fs = require("fs");
+            const c = JSON.parse(fs.readFileSync("eas.json", "utf8"));
+            Object.assign(c.submit.production.ios, {
+              ascApiKeyPath: process.env.EXPO_ASC_API_KEY_PATH,
+              ascApiKeyId: process.env.EXPO_ASC_KEY_ID,
+              ascApiKeyIssuerId: process.env.EXPO_ASC_ISSUER_ID,
+            });
+            fs.writeFileSync("eas.json", JSON.stringify(c, null, 2));
+          '
+          npx --yes eas-cli@24 submit --platform ios --latest --profile production --non-interactive
