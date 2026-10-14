@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { chatThreads, chatUnread, cleanChatText, addDays, brand, inspectionScore, parseInspectionItems, scoreTone, pushConfig, vapidKeyBytes, notificationText, weekdayList, entryMinutes, siteProfit, lexofficeInvoice, nextOfferNumber, offerTotals, parseOfferLines, calculateOffer, calculateYield, marketRates, minimumRates, defaultCalcSettings, parseEuro, decimalHours, hoursCsv, monthRange, monthlyHours, logoSvg, berlinDate, buildInvoiceDrafts, checklistTitle, clockErrorKey, clockErrors, isNetworkError, compareSiteHours, expandSeries, isoWeekday, mondayOf, siteFromRow, texts, visitFromRow, workedMinutes } from "./index";
+import { distanceMeters, formatDistance, suspiciousSites, chatThreads, chatUnread, cleanChatText, addDays, brand, inspectionScore, parseInspectionItems, scoreTone, pushConfig, vapidKeyBytes, notificationText, weekdayList, entryMinutes, siteProfit, lexofficeInvoice, nextOfferNumber, offerTotals, parseOfferLines, calculateOffer, calculateYield, marketRates, minimumRates, defaultCalcSettings, parseEuro, decimalHours, hoursCsv, monthRange, monthlyHours, logoSvg, berlinDate, buildInvoiceDrafts, checklistTitle, clockErrorKey, clockErrors, isNetworkError, compareSiteHours, expandSeries, isoWeekday, mondayOf, siteFromRow, texts, visitFromRow, workedMinutes } from "./index";
 import type { Site } from "./types";
 
 describe("Einsatzplanung", () => {
@@ -374,5 +374,40 @@ describe("Chat", () => {
 
   it("Benachrichtigung nennt den Absender", () => {
     expect(notificationText("de", "chat", { name: "Oksana", text: "Schlüssel fehlt" })).toEqual({ title: "Nachricht von Oksana", body: "Schlüssel fehlt" });
+  });
+});
+
+describe("Standorte", () => {
+  it("misst Abstände", () => {
+    // Lister Meile 61 → Podbielskistraße 93 in Hannover, gut 1 km
+    const d = distanceMeters(52.3860816, 9.7474593, 52.3952945, 9.7625175);
+    expect(d).toBeGreaterThan(1300);
+    expect(d).toBeLessThan(1600);
+  });
+
+  it("schreibt Abstände lesbar", () => {
+    expect(formatDistance("de", 342)).toBe("340 m");
+    expect(formatDistance("de", 2300)).toBe("2,3 km");
+    expect(formatDistance("en", 2300)).toBe("2.3 km");
+    expect(formatDistance("de", 150400)).toBe("150 km");
+  });
+
+  it("findet falsch übersetzte Adressen", () => {
+    const site = (id: string, latitude: number | null, longitude: number | null) => ({ id, latitude, longitude });
+    const sites = [
+      site("hannover", 52.386, 9.747),
+      site("list", 52.395, 9.762),
+      site("wolfsburg", 52.422, 10.792),
+      site("braunschweig", 52.243, 10.532),
+      site("allgaeu", 47.726, 10.318),
+      site("berlin", 52.511, 13.38),
+      site("ohne", null, null),
+    ];
+    expect([...suspiciousSites(sites)].sort()).toEqual(["allgaeu", "berlin"]);
+    expect(suspiciousSites(sites.slice(0, 2)).size).toBe(0);
+  });
+
+  it("Benachrichtigung bei Einstempeln außerhalb", () => {
+    expect(notificationText("de", "clock_off_site", { name: "Mahmoud", site: "Hawes Hemmingen" }).title).toBe("Außerhalb eingestempelt");
   });
 });

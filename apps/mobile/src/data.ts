@@ -76,18 +76,32 @@ export async function loadDay(userId: string): Promise<Day> {
 }
 
 /** Übersetzt einen Datenbankfehler in einen Text für den Mitarbeiter. */
+/** Bei „nicht am Objekt“ schickt die Datenbank den Abstand in Metern mit. */
+export function errorDistance(error: { message?: string; details?: string } | null | undefined): number | null {
+  if (clockErrorKey(error?.message) !== "nicht_am_objekt") return null;
+  const meters = Number(error?.details);
+  return Number.isFinite(meters) && meters > 0 ? meters : null;
+}
+
 export function errorText(error: { message?: string } | null | undefined): TextKey {
   const key = clockErrorKey(error?.message);
   return key ? (`err_${key}` as TextKey) : "networkError";
 }
 
-export type Place = { latitude: number; longitude: number } | { token: string };
+export type Place = { latitude: number; longitude: number; accuracy?: number; force?: boolean } | { token: string };
 
 /** `at`: Zeitpunkt, wenn ohne Netz gestempelt und später gesendet wird. */
 export async function clockIn(visitId: string, place: Place, at?: string) {
   const args = "token" in place
     ? { p_visit_id: visitId, p_token: place.token, p_at: at }
-    : { p_visit_id: visitId, p_latitude: place.latitude, p_longitude: place.longitude, p_at: at };
+    : {
+        p_visit_id: visitId,
+        p_latitude: place.latitude,
+        p_longitude: place.longitude,
+        p_at: at,
+        p_accuracy: place.accuracy ?? null,
+        p_force: place.force ?? false,
+      };
   const { data, error } = await supabase.rpc("clock_in", args);
   if (error) throw error;
   return data as TimeEntryRow;

@@ -14,3 +14,4 @@ export * from "./notifications";
 export * from "./push";
 export * from "./quality";
 export * from "./chat";
+export * from "./geo";

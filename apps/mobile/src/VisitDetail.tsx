@@ -1,11 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Image, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import * as Location from "expo-location";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import * as ImagePicker from "expo-image-picker";
 import { Ionicons } from "@expo/vector-icons";
-import { brand, checklistTitle, t, type Language, type TextKey } from "@gp/shared";
-import { errorText, preparePhoto, tokenFromQr, type Day, type MyVisit, type ReportKind, type ReportPhoto } from "./data";
+import { brand, checklistTitle, formatDistance, t, type Language, type TextKey } from "@gp/shared";
+import { errorDistance, errorText, preparePhoto, tokenFromQr, type Day, type MyVisit, type ReportKind, type ReportPhoto } from "./data";
 import type { Action } from "./outbox";
 import { Button, feel } from "./ui";
 import { styles } from "./styles";
@@ -32,6 +32,9 @@ export function VisitDetail({ lang, visit, day, act, onBack, onFinished, notify 
   const [now, setNow] = useState(Date.now());
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<TextKey | null>(null);
+  const [distance, setDistance] = useState<number | null>(null);
+  // Letzter GPS-Standort, damit „Trotzdem einstempeln“ ihn ohne neue Suche senden kann.
+  const lastPosition = useRef<{ latitude: number; longitude: number; accuracy?: number } | null>(null);
   const [scanning, setScanning] = useState(false);
   const [reporting, setReporting] = useState(false);
   const checked = new Set(day.checked[visit.id] ?? []);
@@ -48,6 +51,7 @@ export function VisitDetail({ lang, visit, day, act, onBack, onFinished, notify 
   const run = async (action: () => Promise<Action>) => {
     setBusy(true);
     setError(null);
+    setDistance(null);
     try {
       const result = await act(await action());
       if (result === "queued") notify("savedOffline");
@@ -55,6 +59,7 @@ export function VisitDetail({ lang, visit, day, act, onBack, onFinished, notify 
     } catch (e) {
       feel.warn();
       setError(errorText(e as { message?: string }));
+      setDistance(errorDistance(e as { message?: string; details?: string }));
       return false;
     } finally {
       setBusy(false);
@@ -71,8 +76,18 @@ export function VisitDetail({ lang, visit, day, act, onBack, onFinished, notify 
       const permission = await Location.requestForegroundPermissionsAsync();
       if (!permission.granted) throw { message: "standort_fehlt" };
       const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
-      return { type: "clockIn", visitId: visit.id, place: { latitude: pos.coords.latitude, longitude: pos.coords.longitude }, at: time };
+      const place = { latitude: pos.coords.latitude, longitude: pos.coords.longitude, accuracy: pos.coords.accuracy ?? undefined };
+      lastPosition.current = place;
+      return { type: "clockIn", visitId: visit.id, place, at: time };
     }).then((ok) => ok && feel.success());
+
+  // Standort passt nicht (oder fehlt beim Objekt): trotzdem einstempeln, das Büro prüft es.
+  const clockInAnyway = () => {
+    const place = lastPosition.current;
+    if (!place) return;
+    run(async () => ({ type: "clockIn", visitId: visit.id, place: { ...place, force: true }, at: at() })).then((ok) => ok && feel.success());
+  };
+  const canForce = !!lastPosition.current && (error === "err_nicht_am_objekt" || error === "err_kein_standort");
 
   const clockInQr = (data: string) => {
     setScanning(false);
@@ -127,6 +142,13 @@ export function VisitDetail({ lang, visit, day, act, onBack, onFinished, notify 
             </>
           )}
           {error && <Text style={[styles.error, { textAlign: "center" }]}>{t(lang, error)}</Text>}
+          {distance !== null && <Text style={[styles.muted, { textAlign: "center" }]}>{t(lang, "awayDistance").replace("{distance}", formatDistance(lang, distance))}</Text>}
+          {canForce && !busy && !entry && (
+            <>
+              <Button label={t(lang, "clockAnyway")} icon="alert-circle-outline" onPress={clockInAnyway} />
+              <Text style={[styles.muted, { textAlign: "center", fontSize: 13 }]}>{t(lang, "clockAnywayHint")}</Text>
+            </>
+          )}
         </View>
       )}
 

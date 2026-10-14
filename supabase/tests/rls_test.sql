@@ -82,7 +82,7 @@ select pg_temp.expect_error('Doppelt einstempeln blockiert',
   $q$select clock_in('40000000-0000-0000-0000-000000000002', p_token => 'qr-lager')$q$, 'schon_eingestempelt');
 
 do $$ begin
-  update visits set date = '2026-10-13';
+  update visits set date = date + 7;
   raise exception 'FEHLGESCHLAGEN: Mitarbeiterin konnte Einsatz umplanen';
 exception when raise_exception then
   if sqlerrm like 'FEHLGESCHLAGEN%' then raise; end if;
@@ -305,18 +305,18 @@ reset role;
 
 -- Krankmeldung: geplante Einsätze werden frei, Büro und Mitarbeiterin werden informiert
 insert into visits (id, company_id, site_id, employee_id, date, start_time, planned_minutes) values
-  ('40000000-0000-0000-0000-000000000009', '00000000-0000-0000-0000-00000000000a', '30000000-0000-0000-0000-000000000003', '10000000-0000-0000-0000-000000000002', berlin_today() + 1, '07:00', 60);
+  ('40000000-0000-0000-0000-000000000009', '00000000-0000-0000-0000-00000000000a', '30000000-0000-0000-0000-000000000003', '10000000-0000-0000-0000-000000000002', berlin_today() + 20, '07:00', 60);
 set role authenticated;
 set request.jwt.claim.sub = '10000000-0000-0000-0000-000000000002';
 insert into absences (company_id, employee_id, kind, date_from, date_to)
-  values ('00000000-0000-0000-0000-00000000000a', '10000000-0000-0000-0000-000000000002', 'krank', berlin_today() + 1, berlin_today() + 1);
+  values ('00000000-0000-0000-0000-00000000000a', '10000000-0000-0000-0000-000000000002', 'krank', berlin_today() + 20, berlin_today() + 20);
 set request.jwt.claim.sub = '10000000-0000-0000-0000-000000000001';
 select pg_temp.expect('Einsatz bei Krankheit frei', (select count(*) from visits where id = '40000000-0000-0000-0000-000000000009' and employee_id is null), 1);
-select pg_temp.expect('Büro erfährt von Krankmeldung', (select count(*) from notifications where kind = 'absence_new' and params->>'from' = (berlin_today() + 1)::text), 1);
+select pg_temp.expect('Büro erfährt von Krankmeldung', (select count(*) from notifications where kind = 'absence_new' and params->>'from' = (berlin_today() + 20)::text), 1);
 -- Chef gibt den Einsatz an jemand anderen: der bekommt eine Nachricht
 update visits set employee_id = '10000000-0000-0000-0000-000000000001' where id = '40000000-0000-0000-0000-000000000009';
 select pg_temp.expect('Neuer Mitarbeiter wird benachrichtigt', (select count(*) from notifications where kind = 'visit_new'), 1);
-update absences set approved = true where employee_id = '10000000-0000-0000-0000-000000000002' and date_from = berlin_today() + 1;
+update absences set approved = true where employee_id = '10000000-0000-0000-0000-000000000002' and date_from = berlin_today() + 20;
 set request.jwt.claim.sub = '10000000-0000-0000-0000-000000000002';
 select pg_temp.expect('Mitarbeiterin erfährt Bestätigung', (select count(*) from notifications where kind = 'absence_ok'), 1);
 reset role;
@@ -349,4 +349,21 @@ set request.jwt.claim.sub = '10000000-0000-0000-0000-000000000005';
 select pg_temp.expect('Kunde sieht keinen Chat', (select count(*) from chat_messages), 0);
 set request.jwt.claim.sub = '10000000-0000-0000-0000-000000000003';
 select pg_temp.expect('Andere Firma sieht keinen Chat', (select count(*) from chat_messages), 0);
+reset role;
+
+-- Einstempeln per Standort: GPS-Ungenauigkeit zählt mit, „trotzdem einstempeln“ wird markiert
+insert into visits (id, company_id, site_id, employee_id, date, start_time, planned_minutes) values
+  ('40000000-0000-0000-0000-000000000021', '00000000-0000-0000-0000-00000000000a', '30000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000006', berlin_today(), '06:00', 60),
+  ('40000000-0000-0000-0000-000000000022', '00000000-0000-0000-0000-00000000000a', '30000000-0000-0000-0000-000000000002', '10000000-0000-0000-0000-000000000006', berlin_today(), '09:00', 60);
+set role authenticated;
+set request.jwt.claim.sub = '10000000-0000-0000-0000-000000000006';
+select pg_temp.expect_error('200 m entfernt ohne Ungenauigkeit blockiert',
+  $q$select clock_in('40000000-0000-0000-0000-000000000021', 52.3777, 9.7320)$q$, 'nicht_am_objekt');
+select pg_temp.expect('200 m entfernt mit 80 m Ungenauigkeit erlaubt',
+  (select count(*) from clock_in('40000000-0000-0000-0000-000000000021', 52.3777, 9.7320, p_accuracy => 80) where not off_site), 1);
+select clock_out((select id from time_entries where employee_id = '10000000-0000-0000-0000-000000000006' and clock_out_at is null));
+select pg_temp.expect('Trotzdem einstempeln wird markiert',
+  (select count(*) from clock_in('40000000-0000-0000-0000-000000000022', 52.4000, 9.8000, p_force => true) where off_site), 1);
+set request.jwt.claim.sub = '10000000-0000-0000-0000-000000000001';
+select pg_temp.expect('Büro erfährt vom Einstempeln außerhalb', (select count(*) from notifications where kind = 'clock_off_site'), 1);
 reset role;

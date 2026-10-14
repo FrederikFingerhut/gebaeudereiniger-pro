@@ -38,6 +38,7 @@ const titles: Record<string, TextKey> = {
   report_new: "n_report_new",
   complaint_new: "n_complaint_new",
   chat: "n_chat",
+  clock_off_site: "n_clock_off_site",
 };
 
 const bodies: Record<string, TextKey> = {
@@ -51,6 +52,7 @@ const bodies: Record<string, TextKey> = {
   report_new: "n_report_body",
   complaint_new: "n_report_body",
   chat: "n_chat_body",
+  clock_off_site: "n_clock_off_site_body",
 };
 
 export function notificationText(lang: Language, kind: string, params: Params): { title: string; body: string } {

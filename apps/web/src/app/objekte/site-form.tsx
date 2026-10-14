@@ -1,6 +1,7 @@
 import { formatEuro } from "@gp/shared";
 import { ActionForm, Field, inputClass } from "@/components/action-form";
 import { saveSite } from "./actions";
+import { CoordinatesField } from "./coordinates-field";
 
 export interface SiteFormData {
   id: string | null;
@@ -72,9 +73,7 @@ export function SiteForm({ site, customers, showPrices }: { site: SiteFormData; 
       <Field label="Besonderheit">
         <input name="special_notes" defaultValue={site.specialNotes} className={inputClass} />
       </Field>
-      <Field label="Koordinaten (leer = aus Adresse)">
-        <input name="coordinates" placeholder="52.3759, 9.7320" defaultValue={site.latitude !== null ? `${site.latitude}, ${site.longitude}` : ""} className={inputClass} />
-      </Field>
+      <CoordinatesField initial={site.latitude !== null ? `${site.latitude}, ${site.longitude}` : ""} />
       <div className="sm:col-span-2">
         <Field label="Checkliste: ein Punkt pro Zeile">
           <textarea name="checklist" rows={6} defaultValue={site.checklist.join("\n")} className={inputClass} />

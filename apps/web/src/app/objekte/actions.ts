@@ -9,16 +9,37 @@ import type { FormState } from "@/components/action-form";
 const text = (data: FormData, key: string) => String(data.get(key) ?? "").trim();
 const optional = (data: FormData, key: string) => text(data, key) || null;
 
-/** Adresse in Koordinaten umwandeln (OpenStreetMap). Klappt das nicht, geht Stempeln per QR-Code. */
-async function geocode(address: string): Promise<{ latitude: number; longitude: number } | null> {
-  try {
-    const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=de&q=${encodeURIComponent(address)}`;
+/**
+ * Adresse in Koordinaten umwandeln (OpenStreetMap). Klappt das nicht, geht Stempeln per QR-Code.
+ * `near`: Mitte der bisherigen Objekte. Treffer in der Nähe haben Vorrang, damit z. B.
+ * „Poststraße 35“ ohne Ort nicht in einer anderen Stadt landet.
+ */
+async function geocode(address: string, near: { latitude: number; longitude: number } | null): Promise<{ latitude: number; longitude: number } | null> {
+  const search = async (box: string) => {
+    const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=de${box}&q=${encodeURIComponent(address)}`;
     const res = await fetch(url, { headers: { "User-Agent": "Gebaeudereiniger-Pro/1.0" }, signal: AbortSignal.timeout(5000) });
     const [hit] = (await res.json()) as { lat: string; lon: string }[];
     return hit ? { latitude: Number(hit.lat), longitude: Number(hit.lon) } : null;
+  };
+  try {
+    if (near) {
+      const d = 0.8; // etwa 60–90 km in jede Richtung
+      const hit = await search(`&bounded=1&viewbox=${near.longitude - d},${near.latitude + d},${near.longitude + d},${near.latitude - d}`);
+      if (hit) return hit;
+    }
+    return await search("");
   } catch {
     return null;
   }
+}
+
+/** Mitte der vorhandenen Objekte (Median), ohne Ausreißer-Einfluss. */
+async function companyCenter(supabase: Awaited<ReturnType<typeof requireMe>>["supabase"]) {
+  const { data } = await supabase.from("sites").select("latitude, longitude").not("latitude", "is", null);
+  const rows = (data ?? []) as { latitude: number; longitude: number }[];
+  if (rows.length === 0) return null;
+  const median = (values: number[]) => values.sort((a, b) => a - b)[Math.floor(values.length / 2)];
+  return { latitude: median(rows.map((r) => r.latitude)), longitude: median(rows.map((r) => r.longitude)) };
 }
 
 function parseCoordinates(value: string): { latitude: number; longitude: number } | null | "invalid" {
@@ -51,7 +72,7 @@ export async function saveSite(siteId: string | null, _: FormState, data: FormDa
   const manual = parseCoordinates(text(data, "coordinates"));
   if (manual === "invalid") return { error: "Koordinaten bitte so eingeben: 52.3759, 9.7320" };
   const { data: old } = siteId ? await supabase.from("sites").select("address, latitude").eq("id", siteId).single() : { data: null };
-  const position = manual ?? (old && old.address === address && old.latitude !== null ? undefined : await geocode(address));
+  const position = manual ?? (old && old.address === address && old.latitude !== null ? undefined : await geocode(address, await companyCenter(supabase)));
 
   const row = {
     company_id: companyId,
@@ -126,4 +147,28 @@ export async function createCustomerLogin(_: FormState, data: FormData): Promise
   refresh();
   const host = (await headers()).get("host");
   return { ok: `Zugang für ${fullName} angelegt. Anmeldung unter ${host ? `https://${host}/anmelden` : "der Adresse des Büro-Webs"} mit ${email} und dem Start-Passwort.` };
+}
+
+/** Standort, an dem ein Mitarbeiter eingestempelt hat, als Objekt-Standort übernehmen. */
+export async function adoptEntryLocation(entryId: string) {
+  const { supabase, profile } = await requireMe();
+  if (profile.role === "mitarbeiter") return;
+  const { data: entry } = await supabase
+    .from("time_entries")
+    .select("clock_in_latitude, clock_in_longitude, visits(site_id)")
+    .eq("id", entryId)
+    .maybeSingle();
+  const visit = entry?.visits as unknown as { site_id: string } | { site_id: string }[] | null;
+  const siteId = Array.isArray(visit) ? visit[0]?.site_id : visit?.site_id;
+  if (!entry || entry.clock_in_latitude === null || !siteId) return;
+  await supabase.from("sites").update({ latitude: entry.clock_in_latitude, longitude: entry.clock_in_longitude }).eq("id", siteId);
+  await supabase.from("time_entries").update({ off_site_checked: true }).eq("id", entryId);
+  refresh();
+}
+
+export async function markOffSiteChecked(entryId: string) {
+  const { supabase, profile } = await requireMe();
+  if (profile.role === "mitarbeiter") return;
+  await supabase.from("time_entries").update({ off_site_checked: true }).eq("id", entryId);
+  refresh();
 }
