@@ -133,6 +133,10 @@ const de = {
   noPayslips: "Noch keine Lohnabrechnungen",
   n_payslip_new: "Neue Lohnabrechnung",
   n_payslip_new_body: "{month} liegt in der App unter Profil bereit.",
+  n_clock_reminder: "Bitte einstempeln",
+  n_clock_reminder_body: "{site} hat um {time} begonnen. Bist du schon da? Dann bitte einstempeln.",
+  n_visit_not_clocked: "Nicht eingestempelt",
+  n_visit_not_clocked_body: "{name}: {site} ab {time} ist eine Stunde später noch nicht gestempelt.",
 };
 
 export type TextKey = keyof typeof de;
@@ -269,6 +273,10 @@ const en: Record<TextKey, string> = {
   noPayslips: "No payslips yet",
   n_payslip_new: "New payslip",
   n_payslip_new_body: "{month} is ready in the app under Profile.",
+  n_clock_reminder: "Please clock in",
+  n_clock_reminder_body: "{site} started at {time}. Are you there? Then please clock in.",
+  n_visit_not_clocked: "Not clocked in",
+  n_visit_not_clocked_body: "{name}: {site} from {time} is still not clocked in an hour later.",
 };
 
 const ru: Record<TextKey, string> = {
@@ -403,6 +411,10 @@ const ru: Record<TextKey, string> = {
   noPayslips: "Расчётных листов пока нет",
   n_payslip_new: "Новый расчётный лист",
   n_payslip_new_body: "{month}: смотрите в приложении в разделе «Профиль».",
+  n_clock_reminder: "Пожалуйста, отметьтесь",
+  n_clock_reminder_body: "{site}: начало в {time}. Вы уже на месте? Тогда отметьтесь, пожалуйста.",
+  n_visit_not_clocked: "Не отметился",
+  n_visit_not_clocked_body: "{name}: {site} с {time} — через час всё ещё нет отметки.",
 };
 
 const uk: Record<TextKey, string> = {
@@ -537,6 +549,10 @@ const uk: Record<TextKey, string> = {
   noPayslips: "Розрахункових листів ще немає",
   n_payslip_new: "Новий розрахунковий лист",
   n_payslip_new_body: "{month}: дивіться в застосунку в розділі «Профіль».",
+  n_clock_reminder: "Будь ласка, відмітьтеся",
+  n_clock_reminder_body: "{site}: початок о {time}. Ви вже на місці? Тоді, будь ласка, відмітьтеся.",
+  n_visit_not_clocked: "Не відмітився",
+  n_visit_not_clocked_body: "{name}: {site} з {time} — через годину досі немає відмітки.",
 };
 
 export const texts: Record<Language, Record<TextKey, string>> = { de, en, ru, uk };

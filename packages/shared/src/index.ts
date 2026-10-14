@@ -16,3 +16,4 @@ export * from "./quality";
 export * from "./chat";
 export * from "./geo";
 export * from "./account";
+export * from "./dashboard";

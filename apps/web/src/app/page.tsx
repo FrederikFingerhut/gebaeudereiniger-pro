@@ -6,11 +6,15 @@ import { clockTime, hours, one } from "@/lib/format";
 import { markReportDone } from "./actions";
 import { adoptEntryLocation, markOffSiteChecked } from "./objekte/actions";
 import { Skeleton } from "@/components/skeleton";
+import { Insights } from "@/components/insights";
 
 export default function OverviewPage() {
   return (
     <>
       <PageTitle>Übersicht</PageTitle>
+      <Suspense fallback={null}>
+        <Insights />
+      </Suspense>
       <Suspense fallback={<Skeleton />}>
         <Overview />
       </Suspense>

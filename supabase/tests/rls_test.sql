@@ -397,3 +397,17 @@ select pg_temp.expect('Kunde sieht keine Lohnabrechnungen', (select count(*) fro
 set request.jwt.claim.sub = '10000000-0000-0000-0000-000000000003';
 select pg_temp.expect('Andere Firma sieht keine Lohnabrechnungen', (select count(*) from payslips) + (select count(*) from storage.objects where bucket_id = 'dokumente'), 0);
 reset role;
+
+-- Warnung: Einsatz eine Stunde nach Beginn nicht gestempelt
+insert into visits (id, company_id, site_id, employee_id, date, start_time, planned_minutes) values
+  ('40000000-0000-0000-0000-000000000031', '00000000-0000-0000-0000-00000000000a', '30000000-0000-0000-0000-000000000003', '10000000-0000-0000-0000-000000000006', berlin_today(), '00:00', 60);
+-- Kurz nach Mitternacht ist die Stunde noch nicht um; dann darf es keine Warnung geben.
+select pg_temp.expect('Nicht gestempelter Einsatz wird gemeldet', warn_unclocked_visits(),
+  case when (now() at time zone 'Europe/Berlin')::time >= '01:00' then 1 else 0 end);
+select pg_temp.expect('Nur einmal je Einsatz', warn_unclocked_visits(), 0);
+set role authenticated;
+set request.jwt.claim.sub = '10000000-0000-0000-0000-000000000006';
+select pg_temp.expect_error('Mitarbeiter kann die Prüfung nicht auslösen', 'select warn_unclocked_visits()', 'permission denied for function warn_unclocked_visits');
+select pg_temp.expect('Mitarbeiter bekommt Erinnerung', (select count(*) from notifications where kind = 'clock_reminder'),
+  case when (now() at time zone 'Europe/Berlin')::time >= '01:00' then 1 else 0 end);
+reset role;
