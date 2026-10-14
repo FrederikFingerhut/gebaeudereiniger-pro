@@ -57,6 +57,18 @@ jobs:
           echo "EXPO_ASC_API_KEY_PATH=$RUNNER_TEMP/asc.p8" >> "$GITHUB_ENV"
       - name: Expo-Projekt verknüpfen
         run: npx --yes eas-cli@24 init --non-interactive --force
+      # EAS legt Zertifikat und Provisioning-Profil bei Apple nur im interaktiven Modus an.
+      # Deshalb läuft dieser Schritt mit Pseudo-Terminal und bestätigt jede Frage mit Enter
+      # (Voreinstellung: neu erzeugen bzw. vorhandenes weiterverwenden). Von Frederik am
+      # 14.10.2026 so freigegeben. Ab dem zweiten Lauf ist alles vorhanden und der Schritt prüft nur.
+      - name: iPhone-Zertifikat einrichten
+        if: env.PLATTFORM != 'android'
+        env:
+          # Nur „Enterprise“ würde etwas ändern; für normale Konten ist der Typ egal.
+          EXPO_APPLE_TEAM_TYPE: INDIVIDUAL
+        run: |
+          (for i in $(seq 120); do sleep 3; printf '\r'; done) \
+            | script -qec "npx --yes eas-cli@24 credentials:configure-build --platform ios --profile production" /dev/null
       - name: Bauen (dauert je nach Warteschlange 15 bis 60 Minuten)
         run: npx --yes eas-cli@24 build --platform "$PLATTFORM" --profile production --non-interactive --wait
       - name: iOS zu App Store Connect hochladen
