@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, AppState, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { brand, CHAT_MAX_LENGTH, t, type Language, type ProfileRow } from "@gp/shared";
-import { loadChat, markChatRead, sendChat, type ChatEntry } from "./data";
+import { loadChat, markChatRead, sendChat, translateMessages, type ChatEntry } from "./data";
 import { feel } from "./ui";
 import { styles } from "./styles";
 
@@ -17,6 +17,10 @@ export function Chat({ lang, profile, onRead }: { lang: Language; profile: Profi
   const [sending, setSending] = useState(false);
   const scroll = useRef<ScrollView>(null);
   const lastId = useRef<string | null>(null);
+  // Übersetzungen fremder Nachrichten in die eigene Sprache (null = war schon in der Sprache).
+  const [translations, setTranslations] = useState<Record<string, string | null>>({});
+  const asked = useRef(new Set<string>());
+  const noKey = useRef(false);
 
   const load = useCallback(async () => {
     try {
@@ -62,6 +66,19 @@ export function Chat({ lang, profile, onRead }: { lang: Language; profile: Profi
     }
   };
 
+  useEffect(() => {
+    if (!messages || noKey.current) return;
+    const ids = messages.filter((m) => m.author_id !== profile.id && !asked.current.has(m.id)).map((m) => m.id).slice(-50);
+    if (ids.length === 0) return;
+    ids.forEach((id) => asked.current.add(id));
+    translateMessages(ids, lang)
+      .then((r) => {
+        if (r.missingKey) noKey.current = true;
+        setTranslations((old) => ({ ...old, ...r.translations }));
+      })
+      .catch(() => ids.forEach((id) => asked.current.delete(id)));
+  }, [messages, lang, profile.id]);
+
   let lastDay = "";
   return (
     <View style={{ flex: 1 }}>
@@ -80,7 +97,16 @@ export function Chat({ lang, profile, onRead }: { lang: Language; profile: Profi
               {showDay && <Text style={[styles.muted, { textAlign: "center", fontSize: 12, marginTop: 8 }]}>{day}</Text>}
               <View style={[styles.bubble, mine ? styles.bubbleMine : styles.bubbleTheirs]}>
                 {!mine && <Text style={styles.bubbleAuthor}>{m.authorName ?? t(lang, "management")}</Text>}
-                <Text style={[styles.bubbleText, mine && { color: c.onPrimary }]}>{m.body}</Text>
+                {!mine && translations[m.id] ? (
+                  <>
+                    <Text style={styles.bubbleText}>{translations[m.id]}</Text>
+                    <Text style={[styles.bubbleTime, { alignSelf: "flex-start", fontStyle: "italic" }]}>
+                      {t(lang, "original")}: {m.body}
+                    </Text>
+                  </>
+                ) : (
+                  <Text style={[styles.bubbleText, mine && { color: c.onPrimary }]}>{m.body}</Text>
+                )}
                 <Text style={[styles.bubbleTime, mine && { color: c.onPrimary }]}>{at.toLocaleTimeString(locales[lang], { hour: "2-digit", minute: "2-digit" })}</Text>
               </View>
             </View>

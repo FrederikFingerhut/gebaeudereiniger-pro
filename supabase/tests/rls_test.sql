@@ -411,3 +411,119 @@ select pg_temp.expect_error('Mitarbeiter kann die Prüfung nicht auslösen', 'se
 select pg_temp.expect('Mitarbeiter bekommt Erinnerung', (select count(*) from notifications where kind = 'clock_reminder'),
   case when (now() at time zone 'Europe/Berlin')::time >= '01:00' then 1 else 0 end);
 reset role;
+
+-- Kunden-Ordner, Verträge und Schlüssel
+set role authenticated;
+set request.jwt.claim.sub = '10000000-0000-0000-0000-000000000001';
+insert into customer_files (company_id, customer_id, kind, title, path) values
+  ('00000000-0000-0000-0000-00000000000a', '20000000-0000-0000-0000-000000000001', 'vertrag', 'Reinigungsvertrag', '00000000-0000-0000-0000-00000000000a/kunden/20000000-0000-0000-0000-000000000001/vertrag.pdf');
+select pg_temp.expect_error('Kunden-Datei mit fremdem Pfad blockiert',
+  $q$insert into customer_files (company_id, customer_id, title, path) values ('00000000-0000-0000-0000-00000000000a', '20000000-0000-0000-0000-000000000001', 'x', '00000000-0000-0000-0000-00000000000a/lohn/x.pdf')$q$,
+  'new row violates row-level security policy for table "customer_files"');
+-- Frist in 20 Tagen: meldet sich; Vertrag mit Verlängerung, dessen Frist weit weg ist: nicht
+insert into contracts (company_id, customer_id, title, ends_on, notice_months) values
+  ('00000000-0000-0000-0000-00000000000a', '20000000-0000-0000-0000-000000000001', 'Unterhaltsreinigung', (berlin_today() + 20 + interval '3 months')::date, 3);
+insert into contracts (company_id, customer_id, title, ends_on, notice_months, auto_renew_months, remind_on, remind_note) values
+  ('00000000-0000-0000-0000-00000000000a', '20000000-0000-0000-0000-000000000001', 'Glasreinigung', berlin_today() - 10, 1, 12, berlin_today(), 'Preiserhöhung ankündigen');
+select pg_temp.expect('Verlängerter Vertrag hat neue Frist', (select count(*) from contracts where title = 'Glasreinigung' and contract_notice_by(contracts) > berlin_today() + 300), 1);
+reset role;
+select pg_temp.expect('Fristen und Erinnerungen melden sich', remind_contracts(), 2);
+select pg_temp.expect('Jede Frist nur einmal', remind_contracts(), 0);
+set role authenticated;
+set request.jwt.claim.sub = '10000000-0000-0000-0000-000000000001';
+select pg_temp.expect('Büro erfährt von der Frist', (select count(*) from notifications where kind in ('contract_deadline', 'contract_reminder')), 2);
+
+insert into site_keys (id, company_id, site_id, label) values
+  ('50000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-00000000000a', '30000000-0000-0000-0000-000000000001', 'Haupteingang');
+insert into key_handovers (company_id, key_id, from_name, to_name, to_profile, signature_to) values
+  ('00000000-0000-0000-0000-00000000000a', '50000000-0000-0000-0000-000000000001', 'Chef A', 'Oksana', '10000000-0000-0000-0000-000000000002', 'data:image/png;base64,iVBORw0KGgo=');
+select pg_temp.expect_error('Unterschrift muss ein Bild sein',
+  $q$insert into key_handovers (company_id, key_id, from_name, to_name, signature_to) values ('00000000-0000-0000-0000-00000000000a', '50000000-0000-0000-0000-000000000001', 'a', 'b', 'javascript:alert(1)')$q$,
+  'new row for relation "key_handovers" violates check constraint "key_handovers_signature_to_check"');
+set request.jwt.claim.sub = '10000000-0000-0000-0000-000000000002';
+select pg_temp.expect('Mitarbeiterin sieht ihren Schlüssel', (select count(*) from site_keys where holder_name = 'Oksana'), 1);
+select pg_temp.expect('Mitarbeiterin sieht keine Kunden-Ordner und Verträge', (select count(*) from customer_files) + (select count(*) from contracts), 0);
+select pg_temp.expect_error('Mitarbeiterin protokolliert keine Übergabe',
+  $q$insert into key_handovers (company_id, key_id, from_name, to_name) values ('00000000-0000-0000-0000-00000000000a', '50000000-0000-0000-0000-000000000001', 'Oksana', 'Pawel')$q$,
+  'new row violates row-level security policy for table "key_handovers"');
+set request.jwt.claim.sub = '10000000-0000-0000-0000-000000000006';
+select pg_temp.expect('Kollege sieht fremde Schlüssel nicht', (select count(*) from site_keys) + (select count(*) from key_handovers), 0);
+set request.jwt.claim.sub = '10000000-0000-0000-0000-000000000005';
+select pg_temp.expect('Kunde sieht weder Ordner noch Schlüssel', (select count(*) from customer_files) + (select count(*) from contracts) + (select count(*) from site_keys), 0);
+set request.jwt.claim.sub = '10000000-0000-0000-0000-000000000003';
+select pg_temp.expect('Andere Firma sieht nichts davon', (select count(*) from customer_files) + (select count(*) from contracts) + (select count(*) from site_keys) + (select count(*) from key_handovers), 0);
+reset role;
+
+-- Material-Checkliste
+insert into sites (id, company_id, customer_id, name, address) values
+  ('30000000-0000-0000-0000-000000000004', '00000000-0000-0000-0000-00000000000a', '20000000-0000-0000-0000-000000000001', 'Halle', 'Hof 3');
+set role authenticated;
+set request.jwt.claim.sub = '10000000-0000-0000-0000-000000000001';
+insert into material_items (id, company_id, site_id, name) values
+  ('60000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-00000000000a', '30000000-0000-0000-0000-000000000001', 'Müllbeutel'),
+  ('60000000-0000-0000-0000-000000000002', '00000000-0000-0000-0000-00000000000a', '30000000-0000-0000-0000-000000000004', 'Glasreiniger');
+set request.jwt.claim.sub = '10000000-0000-0000-0000-000000000002';
+select pg_temp.expect('Mitarbeiterin sieht Material eigener Objekte', (select count(*) from material_items), 1);
+select set_material_status('60000000-0000-0000-0000-000000000001', 'fehlt', 'Rolle leer');
+select pg_temp.expect('Material als fehlend gemeldet', (select count(*) from material_items where status = 'fehlt' and status_by = auth.uid()), 1);
+select pg_temp.expect_error('Material an fremdem Objekt blockiert',
+  $q$select set_material_status('60000000-0000-0000-0000-000000000002', 'fehlt')$q$, 'Keine Berechtigung');
+update material_items set name = 'x';
+select pg_temp.expect('Mitarbeiterin benennt Material nicht um', (select count(*) from material_items where name = 'x'), 0);
+set request.jwt.claim.sub = '10000000-0000-0000-0000-000000000001';
+select pg_temp.expect('Büro erfährt von fehlendem Material', (select count(*) from notifications where kind = 'material_missing'), 1);
+set request.jwt.claim.sub = '10000000-0000-0000-0000-000000000005';
+select pg_temp.expect('Kunde sieht kein Material', (select count(*) from material_items), 0);
+set request.jwt.claim.sub = '10000000-0000-0000-0000-000000000003';
+select pg_temp.expect('Andere Firma sieht kein Material', (select count(*) from material_items), 0);
+reset role;
+
+-- Schichttausch
+insert into visits (id, company_id, site_id, employee_id, date, start_time, planned_minutes) values
+  ('40000000-0000-0000-0000-000000000041', '00000000-0000-0000-0000-00000000000a', '30000000-0000-0000-0000-000000000002', '10000000-0000-0000-0000-000000000002', berlin_today() + 3, '08:00', 60);
+set role authenticated;
+set request.jwt.claim.sub = '10000000-0000-0000-0000-000000000006';
+select pg_temp.expect_error('Fremden Einsatz abgeben blockiert',
+  $q$select offer_swap('40000000-0000-0000-0000-000000000041')$q$, 'Nur eigene Einsätze können abgegeben werden');
+set request.jwt.claim.sub = '10000000-0000-0000-0000-000000000002';
+select pg_temp.expect_error('Direkt in visit_swaps schreiben blockiert',
+  $q$insert into visit_swaps (company_id, visit_id, offered_by) values ('00000000-0000-0000-0000-00000000000a', '40000000-0000-0000-0000-000000000041', '10000000-0000-0000-0000-000000000002')$q$,
+  'new row violates row-level security policy for table "visit_swaps"');
+select pg_temp.expect('Einsatz angeboten', (select count(*) from offer_swap('40000000-0000-0000-0000-000000000041', 'Arzttermin')), 1);
+select pg_temp.expect('Eigenes Angebot erscheint nicht in der Liste', (select count(*) from open_swaps()), 0);
+set request.jwt.claim.sub = '10000000-0000-0000-0000-000000000006';
+select pg_temp.expect('Kollege sieht das Angebot', (select count(*) from open_swaps() where site_name = 'Lager'), 1);
+select pg_temp.expect('Kollege wird benachrichtigt', (select count(*) from notifications where kind = 'swap_offered'), 1);
+select take_swap((select id from open_swaps() limit 1));
+select pg_temp.expect('Einsatz bleibt bis zur Bestätigung bei Oksana', (select count(*) from visits where id = '40000000-0000-0000-0000-000000000041'), 0);
+select pg_temp.expect_error('Mitarbeiter bestätigt nicht selbst',
+  $q$select decide_swap((select id from visit_swaps limit 1), true)$q$, 'Keine Berechtigung');
+set request.jwt.claim.sub = '10000000-0000-0000-0000-000000000005';
+select pg_temp.expect('Kunde sieht keine Tauschangebote', (select count(*) from open_swaps()) + (select count(*) from visit_swaps), 0);
+set request.jwt.claim.sub = '10000000-0000-0000-0000-000000000003';
+select pg_temp.expect('Andere Firma sieht keinen Tausch', (select count(*) from visit_swaps), 0);
+set request.jwt.claim.sub = '10000000-0000-0000-0000-000000000001';
+select pg_temp.expect('Büro erfährt von der Übernahme', (select count(*) from notifications where kind = 'swap_taken'), 1);
+select decide_swap((select id from visit_swaps where status = 'angenommen'), true);
+select pg_temp.expect('Nach Bestätigung hat Pawel den Einsatz',
+  (select count(*) from visits where id = '40000000-0000-0000-0000-000000000041' and employee_id = '10000000-0000-0000-0000-000000000006'), 1);
+select pg_temp.expect_error('Erledigte Anfrage nicht doppelt bestätigen',
+  $q$select decide_swap((select id from visit_swaps limit 1), true)$q$, 'Die Anfrage ist schon erledigt');
+reset role;
+
+-- Chat-Übersetzung
+set role authenticated;
+set request.jwt.claim.sub = '10000000-0000-0000-0000-000000000002';
+select pg_temp.expect_error('Übersetzung nicht selbst schreiben',
+  $q$insert into chat_translations (message_id, lang, company_id, body) select id, 'de', company_id, 'x' from chat_messages limit 1$q$,
+  'new row violates row-level security policy for table "chat_translations"');
+reset role;
+insert into chat_translations (message_id, lang, company_id, body)
+  select id, 'de', company_id, 'übersetzt' from chat_messages where employee_id = '10000000-0000-0000-0000-000000000002';
+set role authenticated;
+set request.jwt.claim.sub = '10000000-0000-0000-0000-000000000006';
+select pg_temp.expect('Kollege sieht fremde Übersetzungen nicht', (select count(*) from chat_translations), 0);
+set request.jwt.claim.sub = '10000000-0000-0000-0000-000000000002';
+select pg_temp.expect('Mitarbeiterin sieht Übersetzungen ihres Chats', least((select count(*) from chat_translations), 1), 1);
+select pg_temp.expect('Mitarbeiterin sieht keine Anbindungen (DeepL-Schlüssel)', (select count(*) from company_integrations), 0);
+reset role;

@@ -66,6 +66,22 @@ export function Account({ lang, profile, notify }: { lang: Language; profile: Pr
           <Ionicons name="open-outline" size={20} color={c.muted} />
         </Pressable>
       ))}
+      <Text style={styles.label}>{t(lang, "myKeys")}</Text>
+      {data.keys.length === 0 && <Text style={styles.muted}>{t(lang, "noKeys")}</Text>}
+      {data.keys.map((k) => (
+        <View key={k.id} style={[styles.card, styles.buttonRow]}>
+          <Ionicons name="key-outline" size={24} color={c.primary} />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.jobName}>
+              {k.label}
+              {k.count > 1 ? ` × ${k.count}` : ""}
+            </Text>
+            <Text style={styles.muted}>
+              {[k.site, k.since ? t(lang, "keySince").replace("{date}", new Date(k.since).toLocaleDateString(locales[lang], { timeZone: "Europe/Berlin" })) : null].filter(Boolean).join(" · ")}
+            </Text>
+          </View>
+        </View>
+      ))}
     </View>
   );
 }

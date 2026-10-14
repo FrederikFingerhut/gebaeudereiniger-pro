@@ -47,14 +47,21 @@ export async function loadInsights(supabase: Db, isOffice: boolean): Promise<Ins
   const { to } = monthRange(period);
   const weekAgo = addDays(today, -7);
 
-  const [{ data: visits }, { data: entries }, { data: people }, { data: absences }, { data: sites }, { data: settingsRow }] = await Promise.all([
+  const [{ data: visits }, { data: entries }, { data: people }, { data: absences }, { data: sites }, { data: settingsRow }, { data: material }, { data: swaps }] = await Promise.all([
     supabase.from("visits").select("id, site_id, employee_id, date, start_time, status, planned_minutes").gte("date", isOffice ? from : weekAgo).lte("date", to),
     supabase.from("time_entries").select("id, employee_id, visit_id, clock_in_at, clock_out_at").gte("clock_in_at", addDays(isOffice ? from : `${period}-01`, -1)),
     supabase.from("profiles").select("id, full_name, role, active, weekly_hours").neq("role", "kunde"),
     supabase.from("absences").select("employee_id, kind, date_from, date_to, approved").lte("date_from", to).gte("date_to", from),
     isOffice ? supabase.from("sites").select("id, name, site_billing(billing_mode, price_cents)") : Promise.resolve({ data: [] as never[] }),
     isOffice ? supabase.from("calc_settings").select("*").maybeSingle() : Promise.resolve({ data: null }),
+    supabase.from("material_items").select("site_id, name, status, sites(name)").neq("status", "ok"),
+    supabase
+      .from("visit_swaps")
+      .select("visits(date, sites(name)), offered:profiles!visit_swaps_offered_by_fkey(full_name), taken:profiles!visit_swaps_taken_by_fkey(full_name)")
+      .eq("status", "angenommen"),
   ]);
+  type MaterialRow = { site_id: string; name: string; status: "wenig" | "fehlt"; sites: { name: string } | null };
+  type SwapRow = { visits: { date: string; sites: { name: string } | null } | null; offered: { full_name: string } | null; taken: { full_name: string } | null };
 
   const name = new Map((people ?? []).map((p) => [p.id, p.full_name as string]));
   const dashSites: DashSite[] = (sites ?? []).map((s: { id: string; name: string; site_billing: unknown }) => {
@@ -114,6 +121,10 @@ export async function loadInsights(supabase: Db, isOffice: boolean): Promise<Ins
         });
         return { employeeId: p.id, employeeName: p.full_name, balanceMinutes: account.balanceMinutes ?? 0 };
       }),
+    material: ((material ?? []) as unknown as MaterialRow[]).map((m) => ({ siteId: m.site_id, siteName: m.sites?.name ?? "Objekt", name: m.name, status: m.status })),
+    swaps: ((swaps ?? []) as unknown as SwapRow[])
+      .filter((s) => (s.visits?.date ?? "") >= today)
+      .map((s) => ({ siteName: s.visits?.sites?.name ?? "Objekt", date: s.visits!.date, from: s.offered?.full_name ?? "", to: s.taken?.full_name ?? "" })),
     nowBerlin: nowBerlin(),
   });
 

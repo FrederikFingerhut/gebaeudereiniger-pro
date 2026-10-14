@@ -13,7 +13,7 @@ export async function saveLexofficeKey(_: FormState, data: FormData): Promise<Fo
   if (!isOffice) return { error: "Keine Berechtigung." };
   const key = String(data.get("key") ?? "").trim();
   if (!key) {
-    await supabase.from("company_integrations").delete().eq("company_id", profile.company_id);
+    await supabase.from("company_integrations").update({ lexoffice_api_key: null, updated_at: new Date().toISOString() }).eq("company_id", profile.company_id);
     refresh();
     return { ok: "Verbindung zu Lexoffice getrennt." };
   }

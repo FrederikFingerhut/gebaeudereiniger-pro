@@ -8,6 +8,7 @@ import { brand, checklistTitle, formatDistance, t, type Language, type TextKey }
 import { errorDistance, errorText, preparePhoto, tokenFromQr, type Day, type MyVisit, type ReportKind, type ReportPhoto } from "./data";
 import type { Action } from "./outbox";
 import { Button, feel } from "./ui";
+import { Material } from "./Material";
 import { styles } from "./styles";
 
 const c = brand.colors;
@@ -180,6 +181,8 @@ export function VisitDetail({ lang, visit, day, act, onBack, onFinished, notify 
           </Pressable>
         );
       })}
+
+      <Material lang={lang} siteId={visit.siteId} notify={notify} />
 
       {reporting ? (
         <ReportForm

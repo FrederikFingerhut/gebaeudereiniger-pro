@@ -77,4 +77,23 @@ describe("Warnungen", () => {
     expect(warnings[2].detail).toBe("Pawel, 12.10. ab 17:00 Uhr");
     expect(warnings[4].href).toBe("/mitarbeiter/m1");
   });
+
+  it("fasst Material je Objekt zusammen und meldet Tauschanfragen", () => {
+    const w = buildWarnings({
+      losses: [],
+      unstarted: [],
+      openEntries: [],
+      overtime: [],
+      material: [
+        { siteId: "s1", siteName: "Praxis", name: "Müllbeutel", status: "fehlt" },
+        { siteId: "s1", siteName: "Praxis", name: "Seife", status: "wenig" },
+        { siteId: "s2", siteName: "Lager", name: "Papier", status: "wenig" },
+      ],
+      swaps: [{ siteName: "Lager", date: "2026-10-16", from: "Olena", to: "Mahmoud" }],
+      nowBerlin: "2026-10-14T10:00",
+    });
+    expect(w.map((x) => x.title)).toEqual(["Material fehlt: Praxis", "Material wird knapp: Lager", "Schichttausch bestätigen: Lager"]);
+    expect(w[0].detail).toBe("Müllbeutel, Seife (knapp)");
+    expect(w[2].detail).toBe("Mahmoud übernimmt von Olena, 16.10.");
+  });
 });

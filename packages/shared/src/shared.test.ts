@@ -315,6 +315,16 @@ describe("Benachrichtigungen", () => {
     expect(a.body).toMatch(/^Urlaub: .*12\.10\..*16\.10\./);
   });
 
+  it("meldet fehlendes Material und Schichttausch", () => {
+    expect(notificationText("de", "material_missing", { site: "Praxis", text: "Müllbeutel", kind: "fehlt", name: "Olena" })).toEqual({
+      title: "Material fehlt: Praxis",
+      body: "Müllbeutel (gemeldet von Olena)",
+    });
+    expect(notificationText("de", "material_missing", { site: "Praxis", text: "Seife", kind: "wenig", name: "Olena" }).title).toBe("Material wird knapp: Praxis");
+    const swap = notificationText("de", "swap_taken", { site: "Lager", name: "Olena", text: "Mahmoud", date: "2026-10-16", time: "08:00" });
+    expect(swap.body).toMatch(/^Mahmoud übernimmt von Olena, .*16\.10\. um 08:00$/);
+  });
+
   it("kommt mit unbekannter Art klar", () => {
     expect(notificationText("de", "neu", {}).title).toBe("neu");
   });

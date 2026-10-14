@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { CHAT_MAX_LENGTH } from "@gp/shared";
-import { loadConversation, loadThreads, sendMessage, type ChatLine, type ThreadItem } from "./actions";
+import { loadConversation, loadThreads, sendMessage, translateLines, type ChatLine, type ThreadItem } from "./actions";
 
 const time = (iso: string) => new Date(iso).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Berlin" });
 const day = (iso: string) => new Date(iso).toLocaleDateString("de-DE", { weekday: "long", day: "numeric", month: "long", timeZone: "Europe/Berlin" });
@@ -31,6 +31,23 @@ export function ChatView({
   const [error, setError] = useState<string | null>(null);
   const bottom = useRef<HTMLDivElement>(null);
   const lastId = useRef<string | undefined>(initialConversation.at(-1)?.id);
+  // Deutsche Übersetzung von Mitarbeiter-Nachrichten (null = war schon Deutsch)
+  const [translations, setTranslations] = useState<Record<string, string | null>>({});
+  const asked = useRef(new Set<string>());
+  const noKey = useRef(false);
+
+  useEffect(() => {
+    if (noKey.current) return;
+    const ids = lines.filter((l) => l.fromEmployee && !asked.current.has(l.id)).map((l) => l.id).slice(-50);
+    if (ids.length === 0) return;
+    ids.forEach((id) => asked.current.add(id));
+    translateLines(ids)
+      .then((r) => {
+        if (r.missingKey) noKey.current = true;
+        setTranslations((old) => ({ ...old, ...r.translations }));
+      })
+      .catch(() => ids.forEach((id) => asked.current.delete(id)));
+  }, [lines]);
 
   const refresh = useCallback(async () => {
     if (document.visibilityState !== "visible") return;
@@ -144,7 +161,16 @@ export function ChatView({
                       }`}
                     >
                       {!l.mine && <div className={`text-xs font-bold ${l.fromEmployee ? "text-primary" : "text-muted"}`}>{l.authorName ?? "Unbekannt"}</div>}
-                      <div className="whitespace-pre-wrap break-words">{l.body}</div>
+                      {translations[l.id] ? (
+                        <>
+                          <div className="whitespace-pre-wrap break-words">{translations[l.id]}</div>
+                          <div className="whitespace-pre-wrap break-words text-xs text-muted italic mt-0.5">
+                            Original: {l.body}
+                          </div>
+                        </>
+                      ) : (
+                        <div className="whitespace-pre-wrap break-words">{l.body}</div>
+                      )}
                       <div className="text-[11px] opacity-70 text-right">{time(l.createdAt)}</div>
                     </div>
                   </div>
