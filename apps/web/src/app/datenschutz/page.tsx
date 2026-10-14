@@ -18,6 +18,10 @@ export default function PrivacyPage() {
         <p>
           {provider.name}
           <br />
+          {provider.street}
+          <br />
+          {provider.city}
+          <br />
           E-Mail: <a className="underline" href={`mailto:${provider.email}`}>{provider.email}</a>
         </p>
         <p>Nutzt eine andere Reinigungsfirma die App, ist diese Firma für die Daten ihrer Mitarbeiter verantwortlich; wir verarbeiten sie dann in ihrem Auftrag.</p>
