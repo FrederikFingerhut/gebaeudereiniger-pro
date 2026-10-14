@@ -41,9 +41,14 @@ async function Hours({ searchParams }: { searchParams: PageProps<"/stunden">["se
         <a className="rounded-lg bg-soft px-3 py-1.5" href={`/stunden?monat=${prev}`}>‹</a>
         <span className="font-display text-lg">{monthLabel(period)}</span>
         <a className="rounded-lg bg-soft px-3 py-1.5" href={`/stunden?monat=${next}`}>›</a>
-        <a className="ml-auto rounded-lg bg-primary text-on-primary px-3 py-1.5" href={`/stunden/csv?monat=${period}`} download>
-          Liste herunterladen (Excel)
-        </a>
+        <span className="ml-auto flex flex-wrap gap-2">
+          <a className="rounded-lg bg-soft px-3 py-1.5" href={`/stunden/csv?monat=${period}`} download>
+            Stunden je Objekt (Excel)
+          </a>
+          <a className="rounded-lg bg-primary text-on-primary px-3 py-1.5" href={`/stunden/steuerberater?monat=${period}`}>
+            Lohnliste für den Steuerberater
+          </a>
+        </span>
       </div>
       {open > 0 && <p className="text-sm text-warn">{open === 1 ? "Ein Einsatz läuft" : `${open} Einsätze laufen`} noch und zählt erst nach dem Ausstempeln.</p>}
       {employees.length === 0 && <p className="text-sm text-muted">In diesem Monat gibt es keine Einsätze und keine gestempelten Zeiten.</p>}

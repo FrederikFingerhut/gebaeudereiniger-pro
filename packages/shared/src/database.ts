@@ -8,6 +8,12 @@ export const supabaseConfig = {
   publishableKey: "sb_publishable_d2pFvyNUJMIfr-nhdpAGfA_Fitm_AEI",
 };
 
+// Adressen der beiden Apps (für Links in Mails und zwischen den Apps).
+export const appUrls = {
+  web: "https://gebaeudereiniger-pro.vercel.app",
+  mobile: "https://gebaeudereiniger-pro-mobile.vercel.app",
+};
+
 // Öffentlicher Schlüssel für Web-Push (VAPID). Der private Teil liegt nur als
 // Geheimnis bei der Push-Funktion in Supabase.
 export const pushConfig = {
@@ -26,6 +32,10 @@ export interface ProfileRow {
   active: boolean;
   /** Nur bei Kunden-Zugängen (Rolle "kunde"). */
   customer_id?: string | null;
+  /** Vertragliche Wochenstunden (Soll); null = kein Soll */
+  weekly_hours?: number | null;
+  /** Urlaubstage pro Kalenderjahr */
+  vacation_days?: number;
 }
 
 export interface SiteRow {

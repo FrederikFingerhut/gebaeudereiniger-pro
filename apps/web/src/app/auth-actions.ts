@@ -69,7 +69,10 @@ export async function setNewPassword(_: FormState, data: FormData): Promise<Form
   const supabase = await db();
   const { data: claims } = await supabase.auth.getClaims();
   if (!claims?.claims) return { error: "Der Link ist abgelaufen. Bitte unter „Passwort vergessen“ einen neuen anfordern." };
-  const { error } = await supabase.auth.updateUser({ password });
+  const { data: user } = await supabase.auth.getUser();
+  const welcome = user.user?.user_metadata?.welcome === true;
+  // Nach der Willkommens-Mail ist die Markierung erledigt; spätere Passwort-Mails sind wieder normal.
+  const { error } = await supabase.auth.updateUser(welcome ? { password, data: { welcome: null } } : { password });
   if (error) return { error: "Das Passwort konnte nicht gespeichert werden. Bitte ein anderes wählen." };
-  redirect("/");
+  redirect(welcome ? "/willkommen" : "/");
 }

@@ -11,9 +11,13 @@
 import { brand } from "../../packages/shared/src/brand.ts";
 
 const WEB = process.env.WEB_URL ?? "https://gebaeudereiniger-pro.vercel.app";
+const MOBILE = process.env.MOBILE_URL ?? "https://gebaeudereiniger-pro-mobile.vercel.app";
 const LOGO = process.env.LOGO_URL ?? `${WEB}/logo.png`;
 const c = brand.colors;
 const font = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif";
+
+/** Text je nachdem, ob es eine Willkommens-Mail ist (Go-Vorlage von Supabase). */
+const welcome = (yes, no) => `{{ if .Data.welcome }}${yes}{{ else }}${no}{{ end }}`;
 
 function mail({ preheader, title, text, button, type, hint }) {
   const link = `${WEB}/auth/bestaetigen?token_hash={{ .TokenHash }}&type=${type}`;
@@ -53,13 +57,21 @@ function mail({ preheader, title, text, button, type, hint }) {
 }
 
 const vorlagen = {
+  // Dieselbe Vorlage dient als Willkommens-Mail: Das Büro-Web setzt beim Anlegen
+  // eines Mitarbeiters user_metadata.welcome und fordert dann diesen Link an.
   recovery: {
-    subject: "Neues Passwort festlegen",
-    preheader: "Leg mit einem Klick ein neues Passwort fest.",
-    title: "Neues Passwort festlegen",
-    text: "Du hast ein neues Passwort angefordert. Klick auf den Knopf und leg dein neues Passwort fest.",
-    button: "Neues Passwort festlegen",
-    hint: "Du hast das nicht angefordert? Dann ignoriere diese E-Mail einfach. Dein Passwort bleibt unverändert.",
+    subject: welcome(`Willkommen bei ${brand.name}`, "Neues Passwort festlegen"),
+    preheader: welcome("Dein Zugang ist fertig. Leg jetzt dein Passwort fest.", "Leg mit einem Klick ein neues Passwort fest."),
+    title: welcome("Willkommen im Team!", "Neues Passwort festlegen"),
+    text: welcome(
+      `Hallo {{ .Data.full_name }}, für dich wurde ein Zugang zu ${brand.name} angelegt. Klick auf den Knopf und leg dein Passwort fest. Danach meldest du dich in der Mitarbeiter-App mit dieser E-Mail-Adresse und deinem Passwort an.`,
+      "Du hast ein neues Passwort angefordert. Klick auf den Knopf und leg dein neues Passwort fest.",
+    ),
+    button: welcome("Passwort festlegen", "Neues Passwort festlegen"),
+    hint: welcome(
+      `Die Mitarbeiter-App findest du hier: <a href="${MOBILE}" style="color:${c.primary};">${MOBILE.replace("https://", "")}</a><br>Tipp: Öffne den Link auf dem Handy und füge die Seite zum Home-Bildschirm hinzu.<br>Ist der Link abgelaufen? Dann tippe in der App auf „Passwort vergessen?“.`,
+      "Du hast das nicht angefordert? Dann ignoriere diese E-Mail einfach. Dein Passwort bleibt unverändert.",
+    ),
   },
   invite: {
     subject: `Willkommen bei ${brand.name}`,

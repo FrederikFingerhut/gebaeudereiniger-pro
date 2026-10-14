@@ -367,3 +367,47 @@ select pg_temp.expect('Trotzdem einstempeln wird markiert',
 set request.jwt.claim.sub = '10000000-0000-0000-0000-000000000001';
 select pg_temp.expect('Büro erfährt vom Einstempeln außerhalb', (select count(*) from notifications where kind = 'clock_off_site'), 1);
 reset role;
+
+-- Arbeitszeitkonto und Lohnabrechnungen
+set role authenticated;
+set request.jwt.claim.sub = '10000000-0000-0000-0000-000000000002';
+select pg_temp.expect_error('Mitarbeiterin ändert eigene Urlaubstage nicht',
+  $q$update profiles set vacation_days = 60 where id = '10000000-0000-0000-0000-000000000002'$q$,
+  'Rolle, Firma und Status kann nur das Büro ändern');
+set request.jwt.claim.sub = '10000000-0000-0000-0000-000000000001';
+update profiles set weekly_hours = 20, vacation_days = 28 where id = '10000000-0000-0000-0000-000000000002';
+insert into storage.objects (bucket_id, name) values
+  ('dokumente', '00000000-0000-0000-0000-00000000000a/lohn/10000000-0000-0000-0000-000000000002/2026-10.pdf'),
+  ('dokumente', '00000000-0000-0000-0000-00000000000a/lohn/10000000-0000-0000-0000-000000000006/2026-10.pdf');
+insert into payslips (company_id, employee_id, period, path) values
+  ('00000000-0000-0000-0000-00000000000a', '10000000-0000-0000-0000-000000000002', '2026-10-01', '00000000-0000-0000-0000-00000000000a/lohn/10000000-0000-0000-0000-000000000002/2026-10.pdf'),
+  ('00000000-0000-0000-0000-00000000000a', '10000000-0000-0000-0000-000000000006', '2026-10-01', '00000000-0000-0000-0000-00000000000a/lohn/10000000-0000-0000-0000-000000000006/2026-10.pdf');
+select pg_temp.expect_error('Lohnabrechnung mit fremdem Pfad blockiert',
+  $q$insert into payslips (company_id, employee_id, period, path) values ('00000000-0000-0000-0000-00000000000a', '10000000-0000-0000-0000-000000000002', '2026-09-01', '00000000-0000-0000-0000-00000000000b/lohn/x.pdf')$q$,
+  'new row violates row-level security policy for table "payslips"');
+set request.jwt.claim.sub = '10000000-0000-0000-0000-000000000002';
+select pg_temp.expect('Mitarbeiterin sieht nur eigene Lohnabrechnung', (select count(*) from payslips), 1);
+select pg_temp.expect('Mitarbeiterin lädt nur eigene Lohnabrechnung', (select count(*) from storage.objects where bucket_id = 'dokumente'), 1);
+select pg_temp.expect('Mitarbeiterin erfährt von Lohnabrechnung', (select count(*) from notifications where kind = 'payslip_new'), 1);
+select pg_temp.expect_error('Mitarbeiterin lädt keine Dokumente hoch',
+  $q$insert into storage.objects (bucket_id, name) values ('dokumente', '00000000-0000-0000-0000-00000000000a/lohn/10000000-0000-0000-0000-000000000002/x.pdf')$q$,
+  'new row violates row-level security policy for table "objects"');
+set request.jwt.claim.sub = '10000000-0000-0000-0000-000000000005';
+select pg_temp.expect('Kunde sieht keine Lohnabrechnungen', (select count(*) from payslips) + (select count(*) from storage.objects where bucket_id = 'dokumente'), 0);
+set request.jwt.claim.sub = '10000000-0000-0000-0000-000000000003';
+select pg_temp.expect('Andere Firma sieht keine Lohnabrechnungen', (select count(*) from payslips) + (select count(*) from storage.objects where bucket_id = 'dokumente'), 0);
+reset role;
+
+-- Warnung: Einsatz eine Stunde nach Beginn nicht gestempelt
+insert into visits (id, company_id, site_id, employee_id, date, start_time, planned_minutes) values
+  ('40000000-0000-0000-0000-000000000031', '00000000-0000-0000-0000-00000000000a', '30000000-0000-0000-0000-000000000003', '10000000-0000-0000-0000-000000000006', berlin_today(), '00:00', 60);
+-- Kurz nach Mitternacht ist die Stunde noch nicht um; dann darf es keine Warnung geben.
+select pg_temp.expect('Nicht gestempelter Einsatz wird gemeldet', warn_unclocked_visits(),
+  case when (now() at time zone 'Europe/Berlin')::time >= '01:00' then 1 else 0 end);
+select pg_temp.expect('Nur einmal je Einsatz', warn_unclocked_visits(), 0);
+set role authenticated;
+set request.jwt.claim.sub = '10000000-0000-0000-0000-000000000006';
+select pg_temp.expect_error('Mitarbeiter kann die Prüfung nicht auslösen', 'select warn_unclocked_visits()', 'permission denied for function warn_unclocked_visits');
+select pg_temp.expect('Mitarbeiter bekommt Erinnerung', (select count(*) from notifications where kind = 'clock_reminder'),
+  case when (now() at time zone 'Europe/Berlin')::time >= '01:00' then 1 else 0 end);
+reset role;

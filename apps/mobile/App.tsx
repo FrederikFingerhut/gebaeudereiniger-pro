@@ -1,14 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, AppState, Image, Platform, Pressable, RefreshControl, ScrollView, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, AppState, Image, Linking, Platform, Pressable, RefreshControl, ScrollView, Text, TextInput, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import type { Session } from "@supabase/supabase-js";
-import { brand, isNetworkError, languages, t, type Language, type ProfileRow, type TextKey } from "@gp/shared";
+import { appUrls, brand, isNetworkError, languages, t, type Language, type ProfileRow, type TextKey } from "@gp/shared";
 import { supabase } from "./src/supabase";
 import { chatUnreadCount, loadDay, loadMyReports, loadProfile, saveLanguage, unreadCount, type Day, type MyReport, type MyVisit } from "./src/data";
 import { Absences, Messages, PushSwitch } from "./src/Extras";
 import { Chat } from "./src/Chat";
+import { Account } from "./src/Account";
 import { registerServiceWorker } from "./src/push";
 import { applyToDay, cachedDay, enqueue, flush, loadOutbox, perform, saveDay, type Action } from "./src/outbox";
 import { VisitDetail, formatDuration } from "./src/VisitDetail";
@@ -154,6 +155,9 @@ function Login({ lang, changeLang }: { lang: Language; changeLang: (l: Language)
         <TextInput style={styles.field} value={password} onChangeText={setPassword} secureTextEntry autoComplete="password" onSubmitEditing={submit} />
         {error && <Text style={styles.error}>{t(lang, error)}</Text>}
         <Button label={t(lang, "login")} variant="primary" big onPress={submit} busy={busy} disabled={!email || !password} />
+        <Pressable onPress={() => Linking.openURL(`${appUrls.web}/passwort-vergessen`)} accessibilityRole="link" style={{ alignSelf: "center", padding: 8 }}>
+          <Text style={[styles.muted, { textDecorationLine: "underline" }]}>{t(lang, "forgotPassword")}</Text>
+        </Pressable>
       </View>
     </ScrollView>
   );
@@ -522,6 +526,8 @@ function Profile({ lang, changeLang, profile, notify }: { lang: Language; change
         <Ionicons name="person-circle-outline" size={40} color={c.primary} />
         <Text style={styles.jobName}>{profile.full_name}</Text>
       </View>
+      <Text style={styles.label}>{t(lang, "myAccount")}</Text>
+      <Account lang={lang} profile={profile} notify={notify} />
       <Text style={styles.label}>{t(lang, "language")}</Text>
       <Languages lang={lang} changeLang={changeLang} />
       <Absences lang={lang} profile={profile} notify={notify} />
