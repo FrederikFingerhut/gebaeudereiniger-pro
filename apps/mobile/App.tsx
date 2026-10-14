@@ -160,6 +160,7 @@ function Login({ lang, changeLang }: { lang: Language; changeLang: (l: Language)
           <Text style={[styles.muted, { textDecorationLine: "underline" }]}>{t(lang, "forgotPassword")}</Text>
         </Pressable>
       </View>
+      <PrivacyLink lang={lang} />
     </ScrollView>
   );
 }
@@ -553,6 +554,15 @@ function Profile({ lang, changeLang, profile, notify }: { lang: Language; change
       <PushSwitch lang={lang} />
       <Text style={styles.label}> </Text>
       <LogoutButton lang={lang} />
+      <PrivacyLink lang={lang} />
     </ScrollView>
+  );
+}
+
+function PrivacyLink({ lang }: { lang: Language }) {
+  return (
+    <Pressable onPress={() => Linking.openURL(`${appUrls.web}/datenschutz`)} accessibilityRole="link" style={{ alignSelf: "center", padding: 8 }}>
+      <Text style={[styles.muted, { textDecorationLine: "underline", fontSize: 13 }]}>{t(lang, "privacyPolicy")}</Text>
+    </Pressable>
   );
 }

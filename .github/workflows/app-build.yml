@@ -1,0 +1,64 @@
+# Baut die Mitarbeiter-App für Google Play und den App Store (über Expo EAS)
+# und lädt die iOS-Version auf Wunsch zu App Store Connect (TestFlight) hoch.
+# Start: GitHub › Actions › „App für die Stores bauen“ › Run workflow.
+#
+# Benötigte Secrets (Settings › Secrets and variables › Actions):
+#   EXPO_TOKEN       Zugangsschlüssel aus expo.dev (Konto › Access tokens)
+#   ASC_API_KEY_P8   Inhalt der .p8-Datei aus App Store Connect (nur für iOS)
+#   ASC_KEY_ID       Schlüssel-ID dazu
+#   ASC_ISSUER_ID    Aussteller-ID (steht über der Schlüsselliste)
+#   APPLE_TEAM_ID    Team-ID aus developer.apple.com › Mitgliedschaft
+name: App für die Stores bauen
+
+on:
+  workflow_dispatch:
+    inputs:
+      plattform:
+        description: Für welche Stores?
+        type: choice
+        options: [beide, android, ios]
+        default: beide
+      hochladen:
+        description: iOS-Version danach zu App Store Connect hochladen
+        type: boolean
+        default: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    defaults:
+      run:
+        working-directory: apps/mobile
+    env:
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+      EXPO_ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      EXPO_ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+      EXPO_APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      PLATTFORM: ${{ inputs.plattform == 'beide' && 'all' || inputs.plattform }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+        working-directory: .
+      - name: Zugang prüfen
+        run: |
+          if [ -z "$EXPO_TOKEN" ]; then echo "::error::Secret EXPO_TOKEN fehlt (expo.dev › Access tokens)."; exit 1; fi
+          if [ "$PLATTFORM" != "android" ] && [ -z "$EXPO_ASC_KEY_ID" ]; then echo "::error::Für iOS fehlen die App-Store-Connect-Secrets."; exit 1; fi
+      - name: App-Store-Connect-Schlüssel ablegen
+        if: env.PLATTFORM != 'android'
+        env:
+          ASC_API_KEY_P8: ${{ secrets.ASC_API_KEY_P8 }}
+        run: |
+          printf '%s\n' "$ASC_API_KEY_P8" > "$RUNNER_TEMP/asc.p8"
+          echo "EXPO_ASC_API_KEY_PATH=$RUNNER_TEMP/asc.p8" >> "$GITHUB_ENV"
+      - name: Expo-Projekt verknüpfen
+        run: npx --yes eas-cli@24 init --non-interactive --force
+      - name: Bauen (dauert je nach Warteschlange 15 bis 60 Minuten)
+        run: npx --yes eas-cli@24 build --platform "$PLATTFORM" --profile production --non-interactive --wait
+      - name: iOS zu App Store Connect hochladen
+        if: inputs.hochladen && env.PLATTFORM != 'android'
+        run: npx --yes eas-cli@24 submit --platform ios --latest --profile production --non-interactive
