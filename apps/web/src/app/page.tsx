@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { berlinDate, compareSiteHours, formatDistance, workedMinutes, type VisitStatus } from "@gp/shared";
+import { appUrls, berlinDate, compareSiteHours, formatDistance, workedMinutes, type VisitStatus } from "@gp/shared";
 import { Card, PageTitle, Pill, StatusPill } from "@/components/ui";
 import { requireMe } from "@/lib/supabase";
 import { clockTime, hours, one } from "@/lib/format";
@@ -213,7 +213,10 @@ async function Overview() {
 function EmployeeHint() {
   return (
     <Card title="Bitte die Handy-App benutzen">
-      <p className="text-sm">Mitarbeiter sehen ihre Einsätze und stempeln in der App auf dem Handy.</p>
+      <p className="text-sm mb-3">Mitarbeiter sehen ihre Einsätze und stempeln in der App auf dem Handy.</p>
+      <a href={appUrls.mobile} className="inline-block rounded-lg bg-signal text-on-signal px-4 py-2 text-sm font-bold">
+        Mitarbeiter-App öffnen
+      </a>
     </Card>
   );
 }

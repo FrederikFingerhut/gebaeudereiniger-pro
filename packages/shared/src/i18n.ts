@@ -121,6 +121,18 @@ const de = {
   chatPlaceholder: "Nachricht schreiben …",
   chatEmpty: "Noch keine Nachrichten.",
   management: "Leitung",
+  forgotPassword: "Passwort vergessen?",
+  myAccount: "Mein Arbeitszeitkonto",
+  hoursThisMonth: "Gearbeitet diesen Monat",
+  targetHours: "Soll bis heute",
+  balance: "Plus/Minus",
+  vacationLeft: "Resturlaub",
+  sickDays: "Krankheitstage",
+  hoursShort: "Std.",
+  payslips: "Lohnabrechnungen",
+  noPayslips: "Noch keine Lohnabrechnungen",
+  n_payslip_new: "Neue Lohnabrechnung",
+  n_payslip_new_body: "{month} liegt in der App unter Profil bereit.",
 };
 
 export type TextKey = keyof typeof de;
@@ -245,6 +257,18 @@ const en: Record<TextKey, string> = {
   chatPlaceholder: "Write a message …",
   chatEmpty: "No messages yet.",
   management: "Management",
+  forgotPassword: "Forgot password?",
+  myAccount: "My time account",
+  hoursThisMonth: "Worked this month",
+  targetHours: "Target until today",
+  balance: "Plus/minus",
+  vacationLeft: "Holiday left",
+  sickDays: "Sick days",
+  hoursShort: "h",
+  payslips: "Payslips",
+  noPayslips: "No payslips yet",
+  n_payslip_new: "New payslip",
+  n_payslip_new_body: "{month} is ready in the app under Profile.",
 };
 
 const ru: Record<TextKey, string> = {
@@ -367,6 +391,18 @@ const ru: Record<TextKey, string> = {
   chatPlaceholder: "Написать сообщение …",
   chatEmpty: "Сообщений пока нет.",
   management: "Руководство",
+  forgotPassword: "Забыли пароль?",
+  myAccount: "Мой учёт времени",
+  hoursThisMonth: "Отработано в этом месяце",
+  targetHours: "Норма на сегодня",
+  balance: "Плюс/минус",
+  vacationLeft: "Остаток отпуска",
+  sickDays: "Дни болезни",
+  hoursShort: "ч",
+  payslips: "Расчётные листы",
+  noPayslips: "Расчётных листов пока нет",
+  n_payslip_new: "Новый расчётный лист",
+  n_payslip_new_body: "{month}: смотрите в приложении в разделе «Профиль».",
 };
 
 const uk: Record<TextKey, string> = {
@@ -489,6 +525,18 @@ const uk: Record<TextKey, string> = {
   chatPlaceholder: "Написати повідомлення …",
   chatEmpty: "Повідомлень ще немає.",
   management: "Керівництво",
+  forgotPassword: "Забули пароль?",
+  myAccount: "Мій облік часу",
+  hoursThisMonth: "Відпрацьовано цього місяця",
+  targetHours: "Норма на сьогодні",
+  balance: "Плюс/мінус",
+  vacationLeft: "Залишок відпустки",
+  sickDays: "Дні хвороби",
+  hoursShort: "год",
+  payslips: "Розрахункові листи",
+  noPayslips: "Розрахункових листів ще немає",
+  n_payslip_new: "Новий розрахунковий лист",
+  n_payslip_new_body: "{month}: дивіться в застосунку в розділі «Профіль».",
 };
 
 export const texts: Record<Language, Record<TextKey, string>> = { de, en, ru, uk };

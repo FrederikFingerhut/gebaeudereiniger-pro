@@ -1,13 +1,13 @@
 import { Suspense } from "react";
+import Link from "next/link";
 import { berlinDate, languages, workedMinutes, type ProfileRow } from "@gp/shared";
 import { Card, PageTitle, Pill } from "@/components/ui";
 import { ActionForm, Field, inputClass } from "@/components/action-form";
-import { requireMe } from "@/lib/supabase";
+import { adminDb, requireMe } from "@/lib/supabase";
 import { hours, one } from "@/lib/format";
-import { createEmployee, decideAbsence, setActive, setPassword } from "./actions";
+import { createEmployee, decideAbsence } from "./actions";
+import { roleLabel } from "./roles";
 import { Skeleton } from "@/components/skeleton";
-
-const roleLabel = { mitarbeiter: "Mitarbeiter", objektleiter: "Objektleiter", buero: "Büro", chef: "Chef", kunde: "Kunde" };
 
 export default function EmployeesPage() {
   return (
@@ -34,6 +34,16 @@ async function Employees() {
     minutes.set(e.employee_id, (minutes.get(e.employee_id) ?? 0) + workedMinutes({ visitId: "", employeeId: e.employee_id, clockInAt: e.clock_in_at, clockOutAt: e.clock_out_at ?? undefined }));
   }
   const list = (people ?? []) as ProfileRow[];
+  // Wer sich noch nie angemeldet hat, bekommt den Hinweis auf die Willkommens-Mail.
+  const neverSignedIn = new Set<string>();
+  if (isOffice) {
+    try {
+      const { data } = await adminDb().auth.admin.listUsers({ perPage: 1000 });
+      for (const u of data.users) if (!u.last_sign_in_at) neverSignedIn.add(u.id);
+    } catch {
+      // Ohne geheimen Schlüssel kein Hinweis.
+    }
+  }
   type AbsenceRow = { id: string; kind: string; date_from: string; date_to: string; approved: boolean | null; profiles: { full_name: string } | null };
 
   return (
@@ -43,22 +53,26 @@ async function Employees() {
           {list.map((p) => (
             <li key={p.id} className="py-3 flex flex-wrap items-center justify-between gap-3">
               <div className="min-w-0">
-                <div className="font-semibold">
-                  {p.full_name} {!p.active && <Pill tone="bad">deaktiviert</Pill>}
+                <div className="font-semibold flex flex-wrap items-center gap-2">
+                  {isOffice ? (
+                    <Link href={`/mitarbeiter/${p.id}`} className="hover:underline">
+                      {p.full_name}
+                    </Link>
+                  ) : (
+                    p.full_name
+                  )}
+                  {!p.active && <Pill tone="bad">deaktiviert</Pill>}
+                  {p.active && neverSignedIn.has(p.id) && <Pill tone="warn">noch nie angemeldet</Pill>}
                 </div>
                 <div className="text-xs text-muted">
                   {roleLabel[p.role]} · {languages.find((l) => l.code === p.language)?.label} · {hours(minutes.get(p.id) ?? 0)}
+                  {p.weekly_hours != null && ` · ${String(p.weekly_hours).replace(".", ",")} Std./Woche`}
                 </div>
               </div>
               {isOffice && p.id !== userId && (
-                <div className="flex flex-wrap items-center gap-2">
-                  <ActionForm action={setPassword.bind(null, p.id)} submit="Passwort setzen" className="flex items-center gap-2">
-                    <input name="password" type="text" placeholder="Neues Passwort" minLength={8} className={inputClass} />
-                  </ActionForm>
-                  <form action={setActive.bind(null, p.id, !p.active)}>
-                    <button className="rounded-lg bg-soft px-3 py-2 text-sm font-semibold">{p.active ? "Deaktivieren" : "Aktivieren"}</button>
-                  </form>
-                </div>
+                <Link href={`/mitarbeiter/${p.id}`} className="rounded-lg bg-soft px-3 py-2 text-sm font-semibold">
+                  Konto, Lohn und Zugang
+                </Link>
               )}
             </li>
           ))}
@@ -100,8 +114,11 @@ async function Employees() {
             <Field label="E-Mail (für die Anmeldung in der App)">
               <input name="email" type="email" required className={inputClass} />
             </Field>
-            <Field label="Start-Passwort (mindestens 8 Zeichen)">
-              <input name="password" type="text" required minLength={8} className={inputClass} />
+            <Field label="Wochenstunden laut Vertrag">
+              <input name="weekly_hours" inputMode="decimal" placeholder="z. B. 20" className={inputClass} />
+            </Field>
+            <Field label="Urlaubstage pro Jahr">
+              <input name="vacation_days" inputMode="decimal" placeholder="z. B. 28" className={inputClass} />
             </Field>
             <Field label="Telefon">
               <input name="phone" type="tel" className={inputClass} />
@@ -115,10 +132,20 @@ async function Employees() {
             </Field>
             <Field label="Rolle">
               <select name="role" defaultValue="mitarbeiter" className={inputClass}>
-                {Object.entries(roleLabel).map(([value, label]) => (
+                {Object.entries(roleLabel).filter(([value]) => value !== "kunde").map(([value, label]) => (
                   <option key={value} value={value}>{label}</option>
                 ))}
               </select>
+            </Field>
+            <label className="sm:col-span-2 flex items-start gap-2 text-sm">
+              <input type="checkbox" name="welcome" defaultChecked className="mt-1" />
+              <span>
+                <b>Willkommens-Mail schicken</b>
+                <span className="block text-muted">Der Mitarbeiter bekommt den Link zur App und legt sein Passwort selbst fest.</span>
+              </span>
+            </label>
+            <Field label="Oder Start-Passwort selbst vergeben (mindestens 8 Zeichen)">
+              <input name="password" type="text" minLength={8} className={inputClass} />
             </Field>
           </ActionForm>
         </Card>

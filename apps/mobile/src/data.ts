@@ -1,5 +1,10 @@
 import {
   berlinDate,
+  monthAccount,
+  vacationLeft,
+  type AccountAbsence,
+  type AccountEntry,
+  type MonthAccount,
   cleanChatText,
   clockErrorKey,
   type ChatMessage,
@@ -319,4 +324,37 @@ export function addDaysIso(date: string, days: number): string {
   const d = new Date(`${date}T12:00:00Z`);
   d.setUTCDate(d.getUTCDate() + days);
   return d.toISOString().slice(0, 10);
+}
+
+export interface MyAccount {
+  account: MonthAccount;
+  vacationLeft: number;
+  payslips: { id: string; period: string; path: string }[];
+}
+
+/** Arbeitszeitkonto des laufenden Monats, Resturlaub und Lohnabrechnungen. */
+export async function loadMyAccount(profile: ProfileRow): Promise<MyAccount> {
+  const today = berlinDate();
+  const period = today.slice(0, 7);
+  const year = today.slice(0, 4);
+  const [{ data: entries, error: e1 }, { data: absences, error: e2 }, { data: payslips, error: e3 }] = await Promise.all([
+    supabase.from("time_entries").select("clock_in_at, clock_out_at").eq("employee_id", profile.id).gte("clock_in_at", addDaysIso(`${period}-01`, -1)),
+    supabase.from("absences").select("kind, date_from, date_to, approved").eq("employee_id", profile.id).lte("date_from", `${year}-12-31`).gte("date_to", `${year}-01-01`),
+    supabase.from("payslips").select("id, period, path").eq("employee_id", profile.id).order("period", { ascending: false }).limit(24),
+  ]);
+  if (e1 || e2 || e3) throw e1 ?? e2 ?? e3;
+  const list = (absences ?? []) as AccountAbsence[];
+  const weeklyHours = profile.weekly_hours == null ? null : Number(profile.weekly_hours);
+  return {
+    account: monthAccount({ period, weeklyHours, entries: (entries ?? []) as AccountEntry[], absences: list, today }),
+    vacationLeft: vacationLeft(Number(profile.vacation_days ?? 0), list, Number(year)),
+    payslips: (payslips ?? []) as MyAccount["payslips"],
+  };
+}
+
+/** Kurz gültiger Link zu einer Lohnabrechnung (privater Speicher). */
+export async function payslipUrl(path: string): Promise<string> {
+  const { data, error } = await supabase.storage.from("dokumente").createSignedUrl(path, 120);
+  if (error || !data) throw error ?? new Error("kein_link");
+  return data.signedUrl;
 }

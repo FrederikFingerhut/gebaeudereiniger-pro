@@ -39,6 +39,7 @@ const titles: Record<string, TextKey> = {
   complaint_new: "n_complaint_new",
   chat: "n_chat",
   clock_off_site: "n_clock_off_site",
+  payslip_new: "n_payslip_new",
 };
 
 const bodies: Record<string, TextKey> = {
@@ -53,6 +54,7 @@ const bodies: Record<string, TextKey> = {
   complaint_new: "n_report_body",
   chat: "n_chat_body",
   clock_off_site: "n_clock_off_site_body",
+  payslip_new: "n_payslip_new_body",
 };
 
 export function notificationText(lang: Language, kind: string, params: Params): { title: string; body: string } {
@@ -67,6 +69,9 @@ export function notificationText(lang: Language, kind: string, params: Params): 
     date: str("date") ? shortDate(lang, str("date")) : "",
     weekdays: Array.isArray(params.weekdays) ? weekdayList(lang, params.weekdays.map(Number)) : "",
     kind: str("kind") === "krank" ? t(lang, "sick") : t(lang, "vacation"),
+    month: /^\d{4}-\d{2}/.test(str("month"))
+      ? new Intl.DateTimeFormat(locales[lang], { month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(`${str("month").slice(0, 7)}-01T00:00:00Z`))
+      : "",
     range: from && to && from !== to ? `${shortDate(lang, from)} – ${shortDate(lang, to)}` : from ? shortDate(lang, from) : "",
   };
   const title = titles[kind] ? fill(t(lang, titles[kind]), values) : kind;
