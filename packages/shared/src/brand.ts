@@ -3,6 +3,8 @@
 export const brand = {
   name: "Gebäudereiniger Pro",
   shortName: "GR Pro",
+  /** Anbieter der App (Impressum, Datenschutz, Store-Einträge) */
+  provider: { name: "FairClean Niedersachsen", email: "info@fairclean-niedersachsen.de" },
   colors: {
     primary: "#0f4c5c",
     // Verlauf im Logo (hell oben links, dunkel unten rechts)

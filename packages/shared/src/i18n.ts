@@ -172,6 +172,7 @@ const de = {
   swapNone: "Keine Einsätze in den nächsten drei Wochen.",
   translated: "übersetzt",
   original: "Original",
+  privacyPolicy: "Datenschutz",
 };
 
 export type TextKey = keyof typeof de;
@@ -347,6 +348,7 @@ const en: Record<TextKey, string> = {
   swapNone: "No shifts in the next three weeks.",
   translated: "translated",
   original: "Original",
+  privacyPolicy: "Privacy policy",
 };
 
 const ru: Record<TextKey, string> = {
@@ -520,6 +522,7 @@ const ru: Record<TextKey, string> = {
   swapNone: "Нет смен в ближайшие три недели.",
   translated: "переведено",
   original: "Оригинал",
+  privacyPolicy: "Конфиденциальность",
 };
 
 const uk: Record<TextKey, string> = {
@@ -693,6 +696,7 @@ const uk: Record<TextKey, string> = {
   swapNone: "Немає змін у найближчі три тижні.",
   translated: "перекладено",
   original: "Оригінал",
+  privacyPolicy: "Конфіденційність",
 };
 
 export const texts: Record<Language, Record<TextKey, string>> = { de, en, ru, uk };
