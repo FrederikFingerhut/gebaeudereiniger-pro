@@ -411,3 +411,45 @@ select pg_temp.expect_error('Mitarbeiter kann die Prüfung nicht auslösen', 'se
 select pg_temp.expect('Mitarbeiter bekommt Erinnerung', (select count(*) from notifications where kind = 'clock_reminder'),
   case when (now() at time zone 'Europe/Berlin')::time >= '01:00' then 1 else 0 end);
 reset role;
+
+-- Kunden-Ordner, Verträge und Schlüssel
+set role authenticated;
+set request.jwt.claim.sub = '10000000-0000-0000-0000-000000000001';
+insert into customer_files (company_id, customer_id, kind, title, path) values
+  ('00000000-0000-0000-0000-00000000000a', '20000000-0000-0000-0000-000000000001', 'vertrag', 'Reinigungsvertrag', '00000000-0000-0000-0000-00000000000a/kunden/20000000-0000-0000-0000-000000000001/vertrag.pdf');
+select pg_temp.expect_error('Kunden-Datei mit fremdem Pfad blockiert',
+  $q$insert into customer_files (company_id, customer_id, title, path) values ('00000000-0000-0000-0000-00000000000a', '20000000-0000-0000-0000-000000000001', 'x', '00000000-0000-0000-0000-00000000000a/lohn/x.pdf')$q$,
+  'new row violates row-level security policy for table "customer_files"');
+-- Frist in 20 Tagen: meldet sich; Vertrag mit Verlängerung, dessen Frist weit weg ist: nicht
+insert into contracts (company_id, customer_id, title, ends_on, notice_months) values
+  ('00000000-0000-0000-0000-00000000000a', '20000000-0000-0000-0000-000000000001', 'Unterhaltsreinigung', (berlin_today() + 20 + interval '3 months')::date, 3);
+insert into contracts (company_id, customer_id, title, ends_on, notice_months, auto_renew_months, remind_on, remind_note) values
+  ('00000000-0000-0000-0000-00000000000a', '20000000-0000-0000-0000-000000000001', 'Glasreinigung', berlin_today() - 10, 1, 12, berlin_today(), 'Preiserhöhung ankündigen');
+select pg_temp.expect('Verlängerter Vertrag hat neue Frist', (select count(*) from contracts where title = 'Glasreinigung' and contract_notice_by(contracts) > berlin_today() + 300), 1);
+reset role;
+select pg_temp.expect('Fristen und Erinnerungen melden sich', remind_contracts(), 2);
+select pg_temp.expect('Jede Frist nur einmal', remind_contracts(), 0);
+set role authenticated;
+set request.jwt.claim.sub = '10000000-0000-0000-0000-000000000001';
+select pg_temp.expect('Büro erfährt von der Frist', (select count(*) from notifications where kind in ('contract_deadline', 'contract_reminder')), 2);
+
+insert into site_keys (id, company_id, site_id, label) values
+  ('50000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-00000000000a', '30000000-0000-0000-0000-000000000001', 'Haupteingang');
+insert into key_handovers (company_id, key_id, from_name, to_name, to_profile, signature_to) values
+  ('00000000-0000-0000-0000-00000000000a', '50000000-0000-0000-0000-000000000001', 'Chef A', 'Oksana', '10000000-0000-0000-0000-000000000002', 'data:image/png;base64,iVBORw0KGgo=');
+select pg_temp.expect_error('Unterschrift muss ein Bild sein',
+  $q$insert into key_handovers (company_id, key_id, from_name, to_name, signature_to) values ('00000000-0000-0000-0000-00000000000a', '50000000-0000-0000-0000-000000000001', 'a', 'b', 'javascript:alert(1)')$q$,
+  'new row for relation "key_handovers" violates check constraint "key_handovers_signature_to_check"');
+set request.jwt.claim.sub = '10000000-0000-0000-0000-000000000002';
+select pg_temp.expect('Mitarbeiterin sieht ihren Schlüssel', (select count(*) from site_keys where holder_name = 'Oksana'), 1);
+select pg_temp.expect('Mitarbeiterin sieht keine Kunden-Ordner und Verträge', (select count(*) from customer_files) + (select count(*) from contracts), 0);
+select pg_temp.expect_error('Mitarbeiterin protokolliert keine Übergabe',
+  $q$insert into key_handovers (company_id, key_id, from_name, to_name) values ('00000000-0000-0000-0000-00000000000a', '50000000-0000-0000-0000-000000000001', 'Oksana', 'Pawel')$q$,
+  'new row violates row-level security policy for table "key_handovers"');
+set request.jwt.claim.sub = '10000000-0000-0000-0000-000000000006';
+select pg_temp.expect('Kollege sieht fremde Schlüssel nicht', (select count(*) from site_keys) + (select count(*) from key_handovers), 0);
+set request.jwt.claim.sub = '10000000-0000-0000-0000-000000000005';
+select pg_temp.expect('Kunde sieht weder Ordner noch Schlüssel', (select count(*) from customer_files) + (select count(*) from contracts) + (select count(*) from site_keys), 0);
+set request.jwt.claim.sub = '10000000-0000-0000-0000-000000000003';
+select pg_temp.expect('Andere Firma sieht nichts davon', (select count(*) from customer_files) + (select count(*) from contracts) + (select count(*) from site_keys) + (select count(*) from key_handovers), 0);
+reset role;

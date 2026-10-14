@@ -330,6 +330,8 @@ export interface MyAccount {
   account: MonthAccount;
   vacationLeft: number;
   payslips: { id: string; period: string; path: string }[];
+  /** Schlüssel, die laut letzter Übergabe gerade bei mir sind */
+  keys: { id: string; label: string; count: number; site: string | null; since: string | null }[];
 }
 
 /** Arbeitszeitkonto des laufenden Monats, Resturlaub und Lohnabrechnungen. */
@@ -337,18 +339,27 @@ export async function loadMyAccount(profile: ProfileRow): Promise<MyAccount> {
   const today = berlinDate();
   const period = today.slice(0, 7);
   const year = today.slice(0, 4);
-  const [{ data: entries, error: e1 }, { data: absences, error: e2 }, { data: payslips, error: e3 }] = await Promise.all([
+  const [{ data: entries, error: e1 }, { data: absences, error: e2 }, { data: payslips, error: e3 }, { data: keys, error: e4 }] = await Promise.all([
     supabase.from("time_entries").select("clock_in_at, clock_out_at").eq("employee_id", profile.id).gte("clock_in_at", addDaysIso(`${period}-01`, -1)),
     supabase.from("absences").select("kind, date_from, date_to, approved").eq("employee_id", profile.id).lte("date_from", `${year}-12-31`).gte("date_to", `${year}-01-01`),
     supabase.from("payslips").select("id, period, path").eq("employee_id", profile.id).order("period", { ascending: false }).limit(24),
+    supabase.from("site_keys").select("id, label, count, sites(name), key_handovers(handed_at)").eq("holder_id", profile.id).order("label"),
   ]);
-  if (e1 || e2 || e3) throw e1 ?? e2 ?? e3;
+  if (e1 || e2 || e3 || e4) throw e1 ?? e2 ?? e3 ?? e4;
+  type KeyRow = { id: string; label: string; count: number; sites: { name: string } | null; key_handovers: { handed_at: string }[] };
   const list = (absences ?? []) as AccountAbsence[];
   const weeklyHours = profile.weekly_hours == null ? null : Number(profile.weekly_hours);
   return {
     account: monthAccount({ period, weeklyHours, entries: (entries ?? []) as AccountEntry[], absences: list, today }),
     vacationLeft: vacationLeft(Number(profile.vacation_days ?? 0), list, Number(year)),
     payslips: (payslips ?? []) as MyAccount["payslips"],
+    keys: ((keys ?? []) as unknown as KeyRow[]).map((k) => ({
+      id: k.id,
+      label: k.label,
+      count: k.count,
+      site: k.sites?.name ?? null,
+      since: k.key_handovers.map((h) => h.handed_at).sort().at(-1) ?? null,
+    })),
   };
 }
 

@@ -14,6 +14,8 @@ const items = [
   { href: "/chat", label: "Chat" },
   { href: "/planung", label: "Einsatzplan" },
   { href: "/objekte", label: "Objekte" },
+  { href: "/kunden", label: "Kunden" },
+  { href: "/schluessel", label: "Schlüssel" },
   { href: "/qualitaet", label: "Qualität" },
   { href: "/mitarbeiter", label: "Mitarbeiter" },
   { href: "/stunden", label: "Stunden" },

@@ -137,6 +137,13 @@ const de = {
   n_clock_reminder_body: "{site} hat um {time} begonnen. Bist du schon da? Dann bitte einstempeln.",
   n_visit_not_clocked: "Nicht eingestempelt",
   n_visit_not_clocked_body: "{name}: {site} ab {time} ist eine Stunde später noch nicht gestempelt.",
+  n_contract_deadline: "Kündigungsfrist: {name}",
+  n_contract_deadline_body: "{text}: kündbar bis {date}",
+  n_contract_reminder: "Erinnerung: {name}",
+  n_contract_reminder_body: "{text}",
+  myKeys: "Meine Schlüssel",
+  noKeys: "Du hast gerade keine Schlüssel.",
+  keySince: "seit {date}",
 };
 
 export type TextKey = keyof typeof de;
@@ -277,6 +284,13 @@ const en: Record<TextKey, string> = {
   n_clock_reminder_body: "{site} started at {time}. Are you there? Then please clock in.",
   n_visit_not_clocked: "Not clocked in",
   n_visit_not_clocked_body: "{name}: {site} from {time} is still not clocked in an hour later.",
+  n_contract_deadline: "Notice deadline: {name}",
+  n_contract_deadline_body: "{text}: can be cancelled until {date}",
+  n_contract_reminder: "Reminder: {name}",
+  n_contract_reminder_body: "{text}",
+  myKeys: "My keys",
+  noKeys: "You have no keys right now.",
+  keySince: "since {date}",
 };
 
 const ru: Record<TextKey, string> = {
@@ -415,6 +429,13 @@ const ru: Record<TextKey, string> = {
   n_clock_reminder_body: "{site}: начало в {time}. Вы уже на месте? Тогда отметьтесь, пожалуйста.",
   n_visit_not_clocked: "Не отметился",
   n_visit_not_clocked_body: "{name}: {site} с {time} — через час всё ещё нет отметки.",
+  n_contract_deadline: "Срок расторжения: {name}",
+  n_contract_deadline_body: "{text}: расторгнуть можно до {date}",
+  n_contract_reminder: "Напоминание: {name}",
+  n_contract_reminder_body: "{text}",
+  myKeys: "Мои ключи",
+  noKeys: "Сейчас у вас нет ключей.",
+  keySince: "с {date}",
 };
 
 const uk: Record<TextKey, string> = {
@@ -553,6 +574,13 @@ const uk: Record<TextKey, string> = {
   n_clock_reminder_body: "{site}: початок о {time}. Ви вже на місці? Тоді, будь ласка, відмітьтеся.",
   n_visit_not_clocked: "Не відмітився",
   n_visit_not_clocked_body: "{name}: {site} з {time} — через годину досі немає відмітки.",
+  n_contract_deadline: "Строк розірвання: {name}",
+  n_contract_deadline_body: "{text}: розірвати можна до {date}",
+  n_contract_reminder: "Нагадування: {name}",
+  n_contract_reminder_body: "{text}",
+  myKeys: "Мої ключі",
+  noKeys: "Зараз у вас немає ключів.",
+  keySince: "з {date}",
 };
 
 export const texts: Record<Language, Record<TextKey, string>> = { de, en, ru, uk };
