@@ -173,6 +173,20 @@ const de = {
   translated: "übersetzt",
   original: "Original",
   privacyPolicy: "Datenschutz",
+  reschedule: "Verschieben",
+  rescheduleTitle: "Einsatz verschieben",
+  rescheduleHint: "Neuer Tag und neue Uhrzeit. Das Büro bekommt eine Nachricht.",
+  rescheduleDone: "Verschoben. Das Büro ist informiert.",
+  day: "Tag",
+  time: "Uhrzeit",
+  save: "Speichern",
+  err_neuer_tag_ungueltig: "Bitte einen Tag ab heute und höchstens 14 Tage im Voraus wählen.",
+  err_tag_belegt: "An diesem Tag ist das Objekt schon für dich geplant.",
+  err_tausch_offen: "Der Einsatz ist gerade zum Tausch angeboten. Zieh das Angebot erst zurück.",
+  n_visit_moved: "Einsatz verschoben: {site}",
+  n_visit_moved_body: "{name} hat ihn auf {date} um {time} gelegt.",
+  sickPhotoHint: "Foto der Krankmeldung (AU) hinzufügen, falls du schon eine hast.",
+  sickPhotos: "Krankmeldung: {count} Foto(s)",
 };
 
 export type TextKey = keyof typeof de;
@@ -349,6 +363,20 @@ const en: Record<TextKey, string> = {
   translated: "translated",
   original: "Original",
   privacyPolicy: "Privacy policy",
+  reschedule: "Reschedule",
+  rescheduleTitle: "Reschedule shift",
+  rescheduleHint: "New day and time. The office will be notified.",
+  rescheduleDone: "Rescheduled. The office has been notified.",
+  day: "Day",
+  time: "Time",
+  save: "Save",
+  err_neuer_tag_ungueltig: "Please choose a day from today up to 14 days ahead.",
+  err_tag_belegt: "This site is already planned for you on that day.",
+  err_tausch_offen: "This shift is offered for a swap. Withdraw the offer first.",
+  n_visit_moved: "Shift rescheduled: {site}",
+  n_visit_moved_body: "{name} moved it to {date} at {time}.",
+  sickPhotoHint: "Add a photo of your sick note if you already have one.",
+  sickPhotos: "Sick note: {count} photo(s)",
 };
 
 const ru: Record<TextKey, string> = {
@@ -523,6 +551,20 @@ const ru: Record<TextKey, string> = {
   translated: "переведено",
   original: "Оригинал",
   privacyPolicy: "Конфиденциальность",
+  reschedule: "Перенести",
+  rescheduleTitle: "Перенести смену",
+  rescheduleHint: "Новый день и время. Офис получит уведомление.",
+  rescheduleDone: "Перенесено. Офис уведомлён.",
+  day: "День",
+  time: "Время",
+  save: "Сохранить",
+  err_neuer_tag_ungueltig: "Выберите день начиная с сегодняшнего, не более чем на 14 дней вперёд.",
+  err_tag_belegt: "В этот день этот объект уже запланирован для вас.",
+  err_tausch_offen: "Эта смена предложена для обмена. Сначала отзовите предложение.",
+  n_visit_moved: "Смена перенесена: {site}",
+  n_visit_moved_body: "{name} перенёс(ла) её на {date} в {time}.",
+  sickPhotoHint: "Добавьте фото больничного, если он у вас уже есть.",
+  sickPhotos: "Больничный: фото {count}",
 };
 
 const uk: Record<TextKey, string> = {
@@ -697,6 +739,20 @@ const uk: Record<TextKey, string> = {
   translated: "перекладено",
   original: "Оригінал",
   privacyPolicy: "Конфіденційність",
+  reschedule: "Перенести",
+  rescheduleTitle: "Перенести зміну",
+  rescheduleHint: "Новий день і час. Офіс отримає сповіщення.",
+  rescheduleDone: "Перенесено. Офіс повідомлено.",
+  day: "День",
+  time: "Час",
+  save: "Зберегти",
+  err_neuer_tag_ungueltig: "Оберіть день від сьогодні, не більше ніж на 14 днів уперед.",
+  err_tag_belegt: "Цього дня цей об’єкт уже заплановано для вас.",
+  err_tausch_offen: "Цю зміну запропоновано для обміну. Спочатку відкличте пропозицію.",
+  n_visit_moved: "Зміну перенесено: {site}",
+  n_visit_moved_body: "{name} переніс(ла) її на {date} о {time}.",
+  sickPhotoHint: "Додайте фото лікарняного, якщо він у вас уже є.",
+  sickPhotos: "Лікарняний: фото {count}",
 };
 
 export const texts: Record<Language, Record<TextKey, string>> = { de, en, ru, uk };

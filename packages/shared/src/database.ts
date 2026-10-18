@@ -167,7 +167,7 @@ export function addDays(date: string, days: number): string {
   return new Date(Date.UTC(y, m - 1, d) + days * 86_400_000).toISOString().slice(0, 10);
 }
 
-// Fehler-Schlüssel, die clock_in/clock_out in der Datenbank werfen.
+// Fehler-Schlüssel, die clock_in/clock_out und reschedule_visit in der Datenbank werfen.
 export const clockErrors = [
   "einsatz_unbekannt",
   "einsatz_abgeschlossen",
@@ -179,6 +179,9 @@ export const clockErrors = [
   "standort_fehlt",
   "zeit_ungueltig",
   "nicht_eingestempelt",
+  "neuer_tag_ungueltig",
+  "tag_belegt",
+  "tausch_offen",
 ] as const;
 export type ClockError = (typeof clockErrors)[number];
 

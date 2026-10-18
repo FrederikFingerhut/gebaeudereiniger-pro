@@ -27,7 +27,7 @@ async function Employees() {
   const [{ data: people }, { data: entries }, { data: absences }] = await Promise.all([
     supabase.from("profiles").select("*").neq("role", "kunde").order("full_name"),
     supabase.from("time_entries").select("employee_id, clock_in_at, clock_out_at").gte("clock_in_at", monthStart),
-    supabase.from("absences").select("id, kind, date_from, date_to, approved, profiles(full_name)").gte("date_to", today).order("date_from"),
+    supabase.from("absences").select("id, kind, date_from, date_to, approved, attachment_paths, profiles(full_name)").gte("date_to", today).order("date_from"),
   ]);
   const minutes = new Map<string, number>();
   for (const e of entries ?? []) {
@@ -44,7 +44,7 @@ async function Employees() {
       // Ohne geheimen Schlüssel kein Hinweis.
     }
   }
-  type AbsenceRow = { id: string; kind: string; date_from: string; date_to: string; approved: boolean | null; profiles: { full_name: string } | null };
+  type AbsenceRow = { id: string; kind: string; date_from: string; date_to: string; approved: boolean | null; attachment_paths: string[] | null; profiles: { full_name: string } | null };
 
   return (
     <div className="flex flex-col gap-4">
@@ -87,6 +87,13 @@ async function Employees() {
               <span>
                 <b>{one(a.profiles)?.full_name}</b> · {a.kind === "krank" ? "krank" : "Urlaub"} · {a.date_from.split("-").reverse().join(".")}
                 {a.date_to !== a.date_from && ` bis ${a.date_to.split("-").reverse().join(".")}`}
+                {/* Fotos der Krankmeldung: Gesundheitsdaten, nur für Büro und Chef */}
+                {isOffice &&
+                  (a.attachment_paths ?? []).map((_, n) => (
+                    <a key={n} href={`/mitarbeiter/krankmeldung/${a.id}/${n}`} target="_blank" rel="noreferrer" className="ml-2 text-primary underline">
+                      Krankmeldung{(a.attachment_paths ?? []).length > 1 ? ` ${n + 1}` : ""}
+                    </a>
+                  ))}
               </span>
               {a.approved === null ? (
                 <span className="flex gap-2">

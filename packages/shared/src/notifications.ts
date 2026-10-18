@@ -49,6 +49,7 @@ const titles: Record<string, TextKey> = {
   swap_taken: "n_swap_taken",
   swap_offered: "n_swap_offered",
   material_missing: "n_material_missing",
+  visit_moved: "n_visit_moved",
 };
 
 const bodies: Record<string, TextKey> = {
@@ -73,6 +74,7 @@ const bodies: Record<string, TextKey> = {
   swap_taken: "n_swap_taken_body",
   swap_offered: "n_swap_offered_body",
   material_missing: "n_material_missing_body",
+  visit_moved: "n_visit_moved_body",
 };
 
 export function notificationText(lang: Language, kind: string, params: Params): { title: string; body: string } {

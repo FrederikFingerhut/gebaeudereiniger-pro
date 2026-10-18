@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, Pressable, RefreshControl, ScrollView, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Image, Pressable, RefreshControl, ScrollView, Text, TextInput, View } from "react-native";
+import * as ImagePicker from "expo-image-picker";
 import { Ionicons } from "@expo/vector-icons";
 import { berlinDate, brand, notificationText, shortDate, t, type Language, type ProfileRow, type TextKey } from "@gp/shared";
-import { addDaysIso, errorText, loadMessages, loadMyAbsences, markAllRead, requestAbsence, type Message, type MyAbsence } from "./data";
+import { addDaysIso, errorText, loadMessages, loadMyAbsences, markAllRead, preparePhoto, requestAbsence, type Message, type MyAbsence, type ReportPhoto } from "./data";
 import { enablePush, pushState, type PushState } from "./push";
 import { Button, feel } from "./ui";
 import { styles } from "./styles";
@@ -116,6 +117,9 @@ export function PushSwitch({ lang }: { lang: Language }) {
   );
 }
 
+/** Höchstens so viele Fotos der Krankmeldung (wie in der Datenbank). */
+const MAX_SICK_PHOTOS = 3;
+
 /** Urlaub beantragen, krank melden und die eigenen Abwesenheiten sehen. */
 export function Absences({ lang, profile, notify }: { lang: Language; profile: ProfileRow; notify: (key: TextKey) => void }) {
   const today = berlinDate();
@@ -124,6 +128,9 @@ export function Absences({ lang, profile, notify }: { lang: Language; profile: P
   const [from, setFrom] = useState(today);
   const [to, setTo] = useState(today);
   const [note, setNote] = useState("");
+  const [photos, setPhotos] = useState<ReportPhoto[]>([]);
+  const [preparing, setPreparing] = useState(false);
+  const [denied, setDenied] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -135,6 +142,8 @@ export function Absences({ lang, profile, notify }: { lang: Language; profile: P
   const start = (k: MyAbsence["kind"]) => {
     setKind(k);
     setError(null);
+    setPhotos([]);
+    setDenied(false);
     const first = k === "krank" ? today : addDaysIso(today, 1);
     setFrom(first);
     setTo(first);
@@ -145,16 +154,34 @@ export function Absences({ lang, profile, notify }: { lang: Language; profile: P
     setBusy(true);
     setError(null);
     try {
-      await requestAbsence(profile, kind, from, to, note);
+      await requestAbsence(profile, kind, from, to, note, kind === "krank" ? photos.map((p) => p.base64) : []);
       feel.success();
       notify(kind === "krank" ? "sickSent" : "vacationSent");
       setKind(null);
       setNote("");
+      setPhotos([]);
       await load();
     } catch (e) {
       setError(t(lang, errorText(e as { message?: string })));
     }
     setBusy(false);
+  };
+
+  // Foto der Krankmeldung (AU): Kamera oder Galerie, gleich verkleinert.
+  const addPhoto = async (source: "camera" | "library") => {
+    const permission = source === "camera" ? await ImagePicker.requestCameraPermissionsAsync() : await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) return setDenied(true);
+    setDenied(false);
+    const options: ImagePicker.ImagePickerOptions = { mediaTypes: ["images"], quality: 0.8 };
+    const result = source === "camera" ? await ImagePicker.launchCameraAsync(options) : await ImagePicker.launchImageLibraryAsync(options);
+    if (result.canceled) return;
+    setPreparing(true);
+    try {
+      const ready = await Promise.all(result.assets.map((a) => preparePhoto(a.uri, a.width)));
+      setPhotos((prev) => [...prev, ...ready].slice(0, MAX_SICK_PHOTOS));
+    } finally {
+      setPreparing(false);
+    }
   };
 
   const statusText = (a: MyAbsence) => (a.approved === true ? t(lang, "approved") : a.approved === false ? t(lang, "rejected") : t(lang, "waiting"));
@@ -175,10 +202,35 @@ export function Absences({ lang, profile, notify }: { lang: Language; profile: P
           <DateStepper lang={lang} label={t(lang, "from")} value={from} min={today} onChange={(d) => { setFrom(d); if (to < d) setTo(d); }} />
           <DateStepper lang={lang} label={t(lang, "until")} value={to} min={from} onChange={setTo} />
           <TextInput style={styles.field} value={note} onChangeText={setNote} placeholder={t(lang, "noteOptional")} placeholderTextColor={c.muted} />
+          {kind === "krank" && (
+            <>
+              <Text style={styles.muted}>{t(lang, "sickPhotoHint")}</Text>
+              {(photos.length > 0 || preparing) && (
+                <View style={styles.row}>
+                  {photos.map((p, i) => (
+                    <View key={p.uri}>
+                      <Image source={{ uri: p.uri }} style={styles.thumb} />
+                      <Pressable style={styles.thumbRemove} onPress={() => setPhotos((prev) => prev.filter((_, j) => j !== i))} accessibilityLabel="✕" hitSlop={8}>
+                        <Ionicons name="close" size={16} color={c.surface} />
+                      </Pressable>
+                    </View>
+                  ))}
+                  {preparing && <ActivityIndicator style={styles.thumb} color={c.primary} />}
+                </View>
+              )}
+              {photos.length < MAX_SICK_PHOTOS && (
+                <View style={styles.row}>
+                  <Button label={t(lang, "takePhoto")} icon="camera-outline" style={{ flex: 1 }} onPress={() => addPhoto("camera")} />
+                  <Button label={t(lang, "pickPhoto")} icon="images-outline" style={{ flex: 1 }} onPress={() => addPhoto("library")} />
+                </View>
+              )}
+              {denied && <Text style={styles.error}>{t(lang, "photoDenied")}</Text>}
+            </>
+          )}
           {error && <Text style={styles.error}>{error}</Text>}
           <View style={styles.row}>
             <Button label={t(lang, "cancel")} onPress={() => setKind(null)} style={{ flex: 1 }} />
-            <Button label={t(lang, "send")} variant="primary" busy={busy} onPress={send} style={{ flex: 1 }} />
+            <Button label={t(lang, "send")} variant="primary" busy={busy} disabled={preparing} onPress={send} style={{ flex: 1 }} />
           </View>
         </View>
       )}
@@ -190,6 +242,7 @@ export function Absences({ lang, profile, notify }: { lang: Language; profile: P
               {shortDate(lang, a.date_from)}
               {a.date_to !== a.date_from ? ` – ${shortDate(lang, a.date_to)}` : ""}
             </Text>
+            {a.attachment_paths?.length > 0 && <Text style={styles.muted}>{t(lang, "sickPhotos").replace("{count}", String(a.attachment_paths.length))}</Text>}
           </View>
           <Text style={[styles.pill, { marginTop: 0, color: statusColor(a), backgroundColor: c.soft }]}>{statusText(a)}</Text>
         </View>
@@ -198,22 +251,47 @@ export function Absences({ lang, profile, notify }: { lang: Language; profile: P
   );
 }
 
-function DateStepper({ lang, label, value, min, onChange }: { lang: Language; label: string; value: string; min: string; onChange: (d: string) => void }) {
+export function DateStepper({ lang, label, value, min, max, onChange }: { lang: Language; label: string; value: string; min: string; max?: string; onChange: (d: string) => void }) {
   const step = (days: number) => {
     const next = addDaysIso(value, days);
-    if (next < min) return;
+    if (next < min || (max && next > max)) return;
     feel.tap();
     onChange(next);
   };
+  const atMax = !!max && value >= max;
   return (
     <View style={[styles.buttonRow, { justifyContent: "space-between" }]}>
-      <Text style={[styles.muted, { width: 48 }]}>{label}</Text>
+      <Text style={[styles.muted, { width: 64 }]}>{label}</Text>
       <Pressable onPress={() => step(-1)} style={styles.stepper} accessibilityRole="button" accessibilityLabel="-1" disabled={value <= min}>
         <Ionicons name="chevron-back" size={22} color={value <= min ? c.line : c.primary} />
       </Pressable>
       <Text style={[styles.jobName, { flex: 1, textAlign: "center" }]}>{shortDate(lang, value)}</Text>
-      <Pressable onPress={() => step(1)} style={styles.stepper} accessibilityRole="button" accessibilityLabel="+1">
-        <Ionicons name="chevron-forward" size={22} color={c.primary} />
+      <Pressable onPress={() => step(1)} style={styles.stepper} accessibilityRole="button" accessibilityLabel="+1" disabled={atMax}>
+        <Ionicons name="chevron-forward" size={22} color={atMax ? c.line : c.primary} />
+      </Pressable>
+    </View>
+  );
+}
+
+/** Uhrzeit "HH:MM" in Schritten von 15 Minuten wählen. */
+export function TimeStepper({ label, value, onChange }: { label: string; value: string; onChange: (time: string) => void }) {
+  const [h, m] = value.split(":").map(Number);
+  const minutes = (h || 0) * 60 + (m || 0);
+  const step = (delta: number) => {
+    // Auf das 15-Minuten-Raster runden, dann innerhalb des Tages bleiben.
+    const next = (Math.round(minutes / 15) * 15 + delta + 1440) % 1440;
+    feel.tap();
+    onChange(`${String(Math.floor(next / 60)).padStart(2, "0")}:${String(next % 60).padStart(2, "0")}`);
+  };
+  return (
+    <View style={[styles.buttonRow, { justifyContent: "space-between" }]}>
+      <Text style={[styles.muted, { width: 64 }]}>{label}</Text>
+      <Pressable onPress={() => step(-15)} onLongPress={() => step(-60)} style={styles.stepper} accessibilityRole="button" accessibilityLabel="-15">
+        <Ionicons name="remove" size={22} color={c.primary} />
+      </Pressable>
+      <Text style={[styles.jobName, { flex: 1, textAlign: "center" }]}>{value}</Text>
+      <Pressable onPress={() => step(15)} onLongPress={() => step(60)} style={styles.stepper} accessibilityRole="button" accessibilityLabel="+15">
+        <Ionicons name="add" size={22} color={c.primary} />
       </Pressable>
     </View>
   );
