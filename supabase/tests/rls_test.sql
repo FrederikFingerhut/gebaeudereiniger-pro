@@ -527,3 +527,57 @@ set request.jwt.claim.sub = '10000000-0000-0000-0000-000000000002';
 select pg_temp.expect('Mitarbeiterin sieht Übersetzungen ihres Chats', least((select count(*) from chat_translations), 1), 1);
 select pg_temp.expect('Mitarbeiterin sieht keine Anbindungen (DeepL-Schlüssel)', (select count(*) from company_integrations), 0);
 reset role;
+
+-- Mitarbeiter verschieben eigene Einsätze
+insert into visits (id, company_id, site_id, employee_id, date, start_time, planned_minutes) values
+  ('40000000-0000-0000-0000-000000000051', '00000000-0000-0000-0000-00000000000a', '30000000-0000-0000-0000-000000000003', '10000000-0000-0000-0000-000000000002', berlin_today() + 2, '18:00', 60);
+set role authenticated;
+set request.jwt.claim.sub = '10000000-0000-0000-0000-000000000006';
+select pg_temp.expect_error('Fremden Einsatz verschieben blockiert',
+  $q$select reschedule_visit('40000000-0000-0000-0000-000000000051', berlin_today() + 3, '07:00')$q$, 'einsatz_unbekannt');
+set request.jwt.claim.sub = '10000000-0000-0000-0000-000000000002';
+select pg_temp.expect_error('Nicht in die Vergangenheit verschieben',
+  $q$select reschedule_visit('40000000-0000-0000-0000-000000000051', berlin_today() - 1, '07:00')$q$, 'neuer_tag_ungueltig');
+select pg_temp.expect_error('Höchstens 14 Tage im Voraus',
+  $q$select reschedule_visit('40000000-0000-0000-0000-000000000051', berlin_today() + 15, '07:00')$q$, 'neuer_tag_ungueltig');
+select pg_temp.expect_error('Direkt umplanen bleibt blockiert',
+  $q$update visits set date = berlin_today() + 3 where id = '40000000-0000-0000-0000-000000000051'$q$, 'Nur das Büro kann Einsätze umplanen');
+select reschedule_visit('40000000-0000-0000-0000-000000000051', berlin_today() + 3, '07:30');
+select pg_temp.expect('Einsatz verschoben',
+  (select count(*) from visits where id = '40000000-0000-0000-0000-000000000051' and date = berlin_today() + 3 and start_time = '07:30'), 1);
+set request.jwt.claim.sub = '10000000-0000-0000-0000-000000000001';
+select pg_temp.expect('Büro erfährt vom Verschieben', (select count(*) from notifications where kind = 'visit_moved'), 1);
+reset role;
+update visits set status = 'erledigt' where id = '40000000-0000-0000-0000-000000000051';
+set role authenticated;
+set request.jwt.claim.sub = '10000000-0000-0000-0000-000000000002';
+select pg_temp.expect_error('Erledigten Einsatz nicht verschieben',
+  $q$select reschedule_visit('40000000-0000-0000-0000-000000000051', berlin_today() + 4, '07:30')$q$, 'einsatz_abgeschlossen');
+reset role;
+
+-- Krankmeldung mit Foto: nur eigene Mitarbeiterin und Büro
+set role authenticated;
+set request.jwt.claim.sub = '10000000-0000-0000-0000-000000000002';
+insert into storage.objects (bucket_id, name)
+  values ('dokumente', '00000000-0000-0000-0000-00000000000a/krank/10000000-0000-0000-0000-000000000002/au.jpg');
+select pg_temp.expect_error('Krankmeldung in fremden Ordner blockiert',
+  $q$insert into storage.objects (bucket_id, name) values ('dokumente', '00000000-0000-0000-0000-00000000000a/krank/10000000-0000-0000-0000-000000000006/au.jpg')$q$,
+  'new row violates row-level security policy for table "objects"');
+select pg_temp.expect_error('Mitarbeiterin lädt nichts in andere Dokumente',
+  $q$insert into storage.objects (bucket_id, name) values ('dokumente', '00000000-0000-0000-0000-00000000000a/lohn/x.pdf')$q$,
+  'new row violates row-level security policy for table "objects"');
+insert into absences (company_id, employee_id, kind, date_from, date_to, attachment_paths) values
+  ('00000000-0000-0000-0000-00000000000a', '10000000-0000-0000-0000-000000000002', 'krank', berlin_today() + 20, berlin_today() + 21,
+   '{00000000-0000-0000-0000-00000000000a/krank/10000000-0000-0000-0000-000000000002/au.jpg}');
+select pg_temp.expect('Krankmeldung mit Foto gespeichert', (select count(*) from absences where cardinality(attachment_paths) = 1), 1);
+select pg_temp.expect_error('Krankmeldung mit fremdem Foto blockiert',
+  $q$insert into absences (company_id, employee_id, kind, date_from, date_to, attachment_paths) values ('00000000-0000-0000-0000-00000000000a', '10000000-0000-0000-0000-000000000002', 'krank', berlin_today() + 30, berlin_today() + 30, '{00000000-0000-0000-0000-00000000000a/10000000-0000-0000-0000-000000000002/kaputt.jpg}')$q$,
+  'new row violates row-level security policy for table "absences"');
+select pg_temp.expect('Mitarbeiterin sieht eigene Krankmeldung', (select count(*) from storage.objects where name like '%/krank/%'), 1);
+set request.jwt.claim.sub = '10000000-0000-0000-0000-000000000006';
+select pg_temp.expect('Kollege sieht fremde Krankmeldung nicht', (select count(*) from storage.objects where name like '%/krank/%'), 0);
+set request.jwt.claim.sub = '10000000-0000-0000-0000-000000000003';
+select pg_temp.expect('Andere Firma sieht Krankmeldung nicht', (select count(*) from storage.objects where name like '%/krank/%'), 0);
+set request.jwt.claim.sub = '10000000-0000-0000-0000-000000000001';
+select pg_temp.expect('Chef sieht Krankmeldung', (select count(*) from storage.objects where name like '%/krank/%'), 1);
+reset role;

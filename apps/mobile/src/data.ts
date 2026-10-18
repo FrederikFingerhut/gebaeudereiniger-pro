@@ -148,11 +148,13 @@ export async function preparePhoto(uri: string, width: number): Promise<ReportPh
   return { uri: image.uri, base64: image.base64 ?? "" };
 }
 
-async function uploadPhoto(profile: ProfileRow, base64: string): Promise<string> {
+async function uploadPhoto(profile: ProfileRow, base64: string, bucket: "fotos" | "dokumente" = "fotos"): Promise<string> {
   const bytes = Uint8Array.from(atob(base64), (ch) => ch.charCodeAt(0));
   // Ordner = Firma/Mitarbeiter; daran hängen die Zugriffsregeln im Speicher.
-  const path = `${profile.company_id}/${profile.id}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`;
-  const { error } = await supabase.storage.from("fotos").upload(path, bytes, { contentType: "image/jpeg" });
+  // Krankmeldungen liegen im Büro-Speicher unter Firma/krank/Mitarbeiter.
+  const folder = bucket === "dokumente" ? `${profile.company_id}/krank/${profile.id}` : `${profile.company_id}/${profile.id}`;
+  const path = `${folder}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`;
+  const { error } = await supabase.storage.from(bucket).upload(path, bytes, { contentType: "image/jpeg" });
   if (error) throw error;
   return path;
 }
@@ -295,12 +297,13 @@ export interface MyAbsence {
   date_from: string;
   date_to: string;
   approved: boolean | null;
+  attachment_paths: string[];
 }
 
 export async function loadMyAbsences(userId: string): Promise<MyAbsence[]> {
   const { data, error } = await supabase
     .from("absences")
-    .select("id, kind, date_from, date_to, approved")
+    .select("id, kind, date_from, date_to, approved, attachment_paths")
     .eq("employee_id", userId)
     .gte("date_to", addDaysIso(berlinDate(), -60))
     .order("date_from", { ascending: false });
@@ -308,7 +311,10 @@ export async function loadMyAbsences(userId: string): Promise<MyAbsence[]> {
   return (data ?? []) as MyAbsence[];
 }
 
-export async function requestAbsence(profile: ProfileRow, kind: MyAbsence["kind"], from: string, to: string, note: string) {
+/** `photos`: Fotos der Krankmeldung (base64), nur bei „krank“. */
+export async function requestAbsence(profile: ProfileRow, kind: MyAbsence["kind"], from: string, to: string, note: string, photos: string[] = []) {
+  const attachmentPaths = [];
+  for (const photo of photos) attachmentPaths.push(await uploadPhoto(profile, photo, "dokumente"));
   const { error } = await supabase.from("absences").insert({
     company_id: profile.company_id,
     employee_id: profile.id,
@@ -316,6 +322,7 @@ export async function requestAbsence(profile: ProfileRow, kind: MyAbsence["kind"
     date_from: from,
     date_to: to,
     note: note.trim() || null,
+    attachment_paths: attachmentPaths,
   });
   if (error) throw error;
 }
@@ -448,6 +455,13 @@ export async function offerSwap(visitId: string): Promise<void> {
 }
 export async function takeSwap(swapId: string): Promise<void> {
   const { error } = await supabase.rpc("take_swap", { p_swap: swapId });
+  if (error) throw error;
+}
+/** Wie weit im Voraus Mitarbeiter eigene Einsätze verschieben können (wie in der Datenbank). */
+export const RESCHEDULE_DAYS = 14;
+
+export async function rescheduleVisit(visitId: string, date: string, time: string): Promise<void> {
+  const { error } = await supabase.rpc("reschedule_visit", { p_visit: visitId, p_date: date, p_time: time });
   if (error) throw error;
 }
 export async function withdrawSwap(swapId: string): Promise<void> {

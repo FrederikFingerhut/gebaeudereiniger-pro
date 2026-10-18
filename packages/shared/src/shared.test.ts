@@ -315,6 +315,13 @@ describe("Benachrichtigungen", () => {
     expect(a.body).toMatch(/^Urlaub: .*12\.10\..*16\.10\./);
   });
 
+  it("meldet dem Büro verschobene Einsätze", () => {
+    const moved = notificationText("de", "visit_moved", { site: "Schlüsselobjekt", name: "Olena", date: "2026-10-18", time: "07:30" });
+    expect(moved.title).toBe("Einsatz verschoben: Schlüsselobjekt");
+    expect(moved.body).toMatch(/^Olena hat ihn auf .*18\.10\. um 07:30 gelegt\.$/);
+    expect(clockErrorKey("tag_belegt")).toBe("tag_belegt");
+  });
+
   it("meldet fehlendes Material und Schichttausch", () => {
     expect(notificationText("de", "material_missing", { site: "Praxis", text: "Müllbeutel", kind: "fehlt", name: "Olena" })).toEqual({
       title: "Material fehlt: Praxis",
