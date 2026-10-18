@@ -87,7 +87,9 @@ export function notificationText(lang: Language, kind: string, params: Params): 
     text: str("text"),
     time: str("time"),
     date: str("date") ? shortDate(lang, str("date")) : "",
-    weekdays: Array.isArray(params.weekdays) ? weekdayList(lang, params.weekdays.map(Number)) : "",
+    weekdays: Array.isArray(params.weekdays)
+      ? (Number(params.weeks) > 1 ? `${t(lang, "everyWeeks").replace("{n}", str("weeks"))}: ` : "") + weekdayList(lang, params.weekdays.map(Number))
+      : "",
     kind:
       str("kind") === "fehlt" ? t(lang, "materialMissing").toLowerCase()
       : str("kind") === "wenig" ? t(lang, "materialLow").toLowerCase()
