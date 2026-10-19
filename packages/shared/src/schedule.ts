@@ -33,9 +33,12 @@ export function expandSeries(
   for (const s of series) {
     const start = parseDate(from > s.validFrom ? from : s.validFrom);
     const last = s.validUntil && s.validUntil < to ? parseDate(s.validUntil) : end;
+    const every = s.intervalWeeks ?? 1;
+    const firstMonday = parseDate(s.validFrom).getTime() - (isoWeekday(s.validFrom) - 1) * 86_400_000;
     for (let d = start; d <= last; d = new Date(d.getTime() + 86_400_000)) {
       const date = formatDate(d);
       if (!s.weekdays.includes(isoWeekday(date))) continue;
+      if (Math.floor((d.getTime() - firstMonday) / (7 * 86_400_000)) % every !== 0) continue;
       if (taken.has(`${s.id}|${date}`)) continue;
       out.push({
         siteId: s.siteId,

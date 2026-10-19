@@ -30,6 +30,8 @@ export interface VisitSeries {
   employeeId: string;
   /** ISO-Wochentage: 1 = Montag … 7 = Sonntag */
   weekdays: number[];
+  /** 1 = jede Woche, 2 = alle zwei Wochen … (gezählt ab der Woche von validFrom) */
+  intervalWeeks?: number;
   startTime: string; // "06:00"
   plannedMinutes: number;
   validFrom: string; // "2026-10-01"

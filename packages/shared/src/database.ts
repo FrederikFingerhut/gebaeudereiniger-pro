@@ -74,6 +74,7 @@ export interface VisitSeriesRow {
   site_id: string;
   employee_id: string;
   weekdays: number[];
+  interval_weeks: number;
   start_time: string;
   planned_minutes: number;
   valid_from: string;
@@ -136,6 +137,7 @@ export function seriesFromRow(row: VisitSeriesRow): VisitSeries {
     siteId: row.site_id,
     employeeId: row.employee_id,
     weekdays: row.weekdays,
+    intervalWeeks: row.interval_weeks,
     startTime: shortTime(row.start_time),
     plannedMinutes: row.planned_minutes,
     validFrom: row.valid_from,

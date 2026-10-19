@@ -19,6 +19,11 @@ describe("Einsatzplanung", () => {
     const series = [{ id: "s1", siteId: "o1", employeeId: "m1", weekdays: [1, 2, 3, 4, 5], startTime: "06:00", plannedMinutes: 60, validFrom: "2026-10-14", validUntil: "2026-10-15" }];
     expect(expandSeries(series, "2026-10-12", "2026-10-18").map((v) => v.date)).toEqual(["2026-10-14", "2026-10-15"]);
   });
+
+  it("plant alle zwei Wochen ab der Startwoche", () => {
+    const series = [{ id: "s1", siteId: "o1", employeeId: "m1", weekdays: [2], intervalWeeks: 2, startTime: "07:15", plannedMinutes: 60, validFrom: "2026-10-07" }];
+    expect(expandSeries(series, "2026-10-05", "2026-11-08").map((v) => v.date)).toEqual(["2026-10-20", "2026-11-03"]);
+  });
 });
 
 describe("Zeiterfassung", () => {
@@ -311,6 +316,7 @@ describe("Benachrichtigungen", () => {
 
   it("nennt Wochentage und Zeiträume", () => {
     expect(weekdayList("de", [1, 3, 5])).toMatch(/^Mo.*Mi.*Fr/);
+    expect(notificationText("de", "series_new", { site: "Lager", weekdays: [2], time: "07:15", weeks: 2 }).body).toMatch(/^Lager: alle 2 Wochen: Di/);
     const a = notificationText("de", "absence_ok", { kind: "urlaub", from: "2026-10-12", to: "2026-10-16" });
     expect(a.body).toMatch(/^Urlaub: .*12\.10\..*16\.10\./);
   });
