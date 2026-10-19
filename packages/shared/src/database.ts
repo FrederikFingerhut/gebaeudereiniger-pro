@@ -179,6 +179,8 @@ export const clockErrors = [
   "kein_standort",
   "nicht_am_objekt",
   "standort_fehlt",
+  // Nur in der App: Handy gibt den Standort nicht frei.
+  "standort_aus",
   "zeit_ungueltig",
   "nicht_eingestempelt",
   "neuer_tag_ungueltig",
