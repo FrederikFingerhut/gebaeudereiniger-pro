@@ -75,8 +75,11 @@ export function VisitDetail({ lang, visit, day, act, onBack, onFinished, notify 
     run(async () => {
       const time = at();
       const permission = await Location.requestForegroundPermissionsAsync();
-      if (!permission.granted) throw { message: "standort_fehlt" };
-      const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+      if (!permission.granted) throw { message: "standort_aus" };
+      // Ortung am Handy aus oder keine Position: klar sagen, statt eines allgemeinen Fehlers.
+      const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High }).catch(() => {
+        throw { message: "standort_aus" };
+      });
       const place = { latitude: pos.coords.latitude, longitude: pos.coords.longitude, accuracy: pos.coords.accuracy ?? undefined };
       lastPosition.current = place;
       return { type: "clockIn", visitId: visit.id, place, at: time };
