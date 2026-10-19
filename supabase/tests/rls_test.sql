@@ -131,10 +131,11 @@ insert into absences (company_id, employee_id, kind, date_from, date_to)
 select pg_temp.expect('Serie erzeugt Einsätze (Mi krank fällt weg)', ensure_visits('2026-10-12', '2026-10-18'), 2);
 select pg_temp.expect('Zweiter Lauf erzeugt nichts doppelt', ensure_visits('2026-10-12', '2026-10-18'), 0);
 insert into visit_series (company_id, site_id, employee_id, weekdays, start_time, planned_minutes, valid_from, interval_weeks)
-  values ('00000000-0000-0000-0000-00000000000a', '30000000-0000-0000-0000-000000000003', '10000000-0000-0000-0000-000000000002', '{2}', '07:15', 60, '2026-10-07', 2);
-select ensure_visits('2026-10-05', '2026-11-08');
+  values ('00000000-0000-0000-0000-00000000000a', '30000000-0000-0000-0000-000000000003', '10000000-0000-0000-0000-000000000002', '{2}', '07:15', 60, '2026-08-12', 2);
+-- Zeitraum vor den anderen Serien, damit hier keine Einsätze für heute entstehen.
+select ensure_visits('2026-08-10', '2026-09-13');
 select pg_temp.expect('Alle zwei Wochen: nur jede zweite Woche ab Startwoche',
-  (select count(*) from visits where site_id = '30000000-0000-0000-0000-000000000003' and start_time = '07:15' and date in ('2026-10-20', '2026-11-03')), 2);
+  (select count(*) from visits where site_id = '30000000-0000-0000-0000-000000000003' and start_time = '07:15' and date in ('2026-08-25', '2026-09-08')), 2);
 select pg_temp.expect('Alle zwei Wochen: Zwischenwochen bleiben frei',
   (select count(*) from visits where site_id = '30000000-0000-0000-0000-000000000003' and start_time = '07:15'), 2);
 select pg_temp.expect('Chef sieht Preise', (select count(*) from site_billing), 1);
